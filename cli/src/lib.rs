@@ -1,7 +1,9 @@
 use clap::ValueEnum;
+use serde::Serialize;
+use std::time;
 use std::{
     fs, io,
-    path::{self, PathBuf},
+    path::{self},
     process,
 };
 use tempfile::tempdir;
@@ -39,17 +41,15 @@ fn copy_dir_all(src: impl AsRef<path::Path>, dst: impl AsRef<path::Path>) -> io:
     Ok(())
 }
 
-pub fn run_problem(source_code_path: &std::path::PathBuf, lang: Lang) -> Result<RunResult, String> {
+pub fn run_problem(
+    source_code_path: &std::path::PathBuf,
+    lang: Lang,
+) -> Result<Vec<TestResult>, String> {
     let tmp_dir = prepare_context(source_code_path, lang)?;
 
     build_docker_image(tmp_dir.path())?;
 
-    run_tests(tmp_dir.path())?;
-
-    Ok(RunResult {
-        time_elapsed_ms: 0,
-        energy_consumed_j: 0,
-    })
+    run_tests(tmp_dir.path())
 }
 
 struct Test {
@@ -106,17 +106,22 @@ fn get_tests(context_directory: &path::Path) -> Result<Vec<Test>, String> {
     }
 }
 
-fn run_tests(context_directory: &path::Path) -> Result<(), String> {
+fn run_tests(context_directory: &path::Path) -> Result<Vec<TestResult>, String> {
     let tests = get_tests(context_directory)?;
     println!("Running {} tests", tests.len());
 
+    let mut test_results = Vec::new();
+
     for test in tests {
-        if let Err(error) = run_test(&test) {
+        let test_run = run_test(&test);
+        if let Ok(result) = test_run {
+            test_results.push(result);
+        } else if let Err(error) = test_run {
             return Err(error);
-        };
+        }
     }
 
-    Ok(())
+    Ok(test_results)
 }
 
 fn files_have_same_content(file1: &path::Path, file2: &path::Path) -> Result<bool, String> {
@@ -148,10 +153,30 @@ fn compare_answer(test: &Test) -> Result<bool, String> {
     files_have_same_content(&test.answer, &test.solution)
 }
 
-fn run_test(test: &Test) -> Result<(), String> {
+#[derive(Serialize)]
+pub struct TestStats {
+    time_elapsed_ms: u32,
+    energy_consumed_j: u32,
+}
+
+#[derive(Serialize)]
+pub enum TestRunResult {
+    TestError { error: String },
+    Incorrect,
+    Correct { stats: TestStats },
+}
+
+#[derive(Serialize)]
+pub struct TestResult {
+    pub test_number: u8,
+    pub run_result: TestRunResult,
+}
+
+fn run_test(test: &Test) -> Result<TestResult, String> {
     let docker_run_cmd = format!("docker run -i app < {:?} > {:?}", test.input, test.answer);
 
     println!("Running docker image with command: {}", docker_run_cmd);
+    let start_time = time::Instant::now();
     let run_output = if cfg!(target_os = "windows") {
         process::Command::new("cmd")
             .arg("/C")
@@ -163,21 +188,32 @@ fn run_test(test: &Test) -> Result<(), String> {
             .arg(docker_run_cmd)
             .output()
     }
-    .map_err(|run_error| format!("Docker image run failed: {}", run_error))?;
+    .map_err(|run_error| format!("Failed to start Docker image: {}", run_error))?;
 
-    if !run_output.status.success() {
-        Err(format!(
-            "Docker run failed: {:?}",
-            std::str::from_utf8(&run_output.stderr)
-                .expect("Expected to be able to parse stderr output")
-        ))
-    } else {
-        if compare_answer(test)? {
-            Ok(())
+    let elapsed = start_time.elapsed();
+    Ok(TestResult {
+        test_number: test.test_number,
+        run_result: if !run_output.status.success() {
+            TestRunResult::TestError {
+                error: format!(
+                    "Docker run failed: {:?}",
+                    std::str::from_utf8(&run_output.stderr)
+                        .expect("Expected to be able to parse stderr output")
+                ),
+            }
         } else {
-            Err("Incorrect answer".to_string())
-        }
-    }
+            if compare_answer(test)? {
+                TestRunResult::Correct {
+                    stats: TestStats {
+                        time_elapsed_ms: elapsed.as_millis() as u32,
+                        energy_consumed_j: 0,
+                    },
+                }
+            } else {
+                TestRunResult::Incorrect
+            }
+        },
+    })
 }
 
 fn prepare_context(
