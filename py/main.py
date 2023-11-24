@@ -1,6 +1,7 @@
 import json
 import tinytuya
-from time import sleep
+import time
+from datetime import datetime
 import asyncio 
 from websockets.server import serve
 from websockets import ConnectionClosed
@@ -45,9 +46,10 @@ class TuyaDevice:
             if w is None:
                 continue
 
-            print("w={}".format(w))
+            now = datetime.utcnow().isoformat() + "Z" #time.strftime("%Y-%m-%dT%H:%M:%S.%fZ", time.gmtime())
+            print("now={}  w={}".format(now, w))
             for callback in self.callbacks:
-                await callback(w)
+                await callback(now, w)
 
             await asyncio.sleep(1.0 / EVENT_FREQUENCY_HZ)
 
@@ -77,9 +79,9 @@ async def handle(websocket):
         await websocket.close()
         return
 
-    async def callback(w):
+    async def callback(now, w):
         try: 
-            await websocket.send(json.dumps({"w": w}))
+            await websocket.send(json.dumps({"timestamp": now, "power": w}))
         except ConnectionClosed as e: 
             print("Connection closed, removing callback")
             tuyaDevice.remove_callback(callback)
