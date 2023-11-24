@@ -1,15 +1,13 @@
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
+use std::thread;
 use std::{
     fs, io,
     path::{self},
     process,
     sync::{Arc, Mutex},
 };
-use std::{thread, time};
 use tempfile::tempdir;
-use websocket::r#async::{Client, TcpStream};
-use websocket::stream::sync::AsTcpStream;
 use websocket::{ClientBuilder, OwnedMessage};
 
 pub struct RunResult {

@@ -39,7 +39,7 @@ class TuyaDevice:
         d.set_socketPersistent(True)
 
         while True:
-            d.updatedps(nowait=True)
+            d.updatedps([19], nowait=True)
 
             dps = d.status()['dps']
             w = dps['19'] / 10.0 if '19' in dps else None 
