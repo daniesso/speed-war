@@ -1,25 +1,19 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Form, Link, NavLink, Outlet, useLoaderData } from "@remix-run/react";
-import { createContest, getContest } from "~/models/contest.server";
+import { Form, Link, Outlet, useLoaderData } from "@remix-run/react";
 
-import { getNoteListItems } from "~/models/note.server";
-import { requireUser, requireUserId } from "~/session.server";
-import { useUser } from "~/utils";
+import { getContest } from "~/models/contest.server";
+import { requireUser } from "~/session.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const user = await requireUser(request);
-  const noteListItems = await getNoteListItems({ userId: user.userId });
-  let contest = await getContest();
+  const contest = await getContest();
 
-  if (!contest) {
-    contest = await createContest(4, 4);
-  }
-  return json({ noteListItems, contest, user });
+  return json({ contest, user });
 };
 
 export default function Index() {
-  const { noteListItems, contest, user } = useLoaderData<typeof loader>();
+  const { user } = useLoaderData<typeof loader>();
 
   return (
     <div className="flex h-full min-h-screen flex-col">
@@ -27,7 +21,7 @@ export default function Index() {
         <h1 className="text-3xl font-bold">
           <Link to="/">Speed Warz</Link>
         </h1>
-        {!user.isAdmin ? <p>user.teamName</p> : null}
+        {!user.isAdmin ? <p>{user.teamName}</p> : null}
 
         <div className="flex flex-row items-center gap-4">
           {user.isAdmin ? <Link to="/home/admin">Admin</Link> : null}

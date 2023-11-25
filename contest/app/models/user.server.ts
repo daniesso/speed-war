@@ -1,10 +1,6 @@
-import type { User } from "@prisma/client";
-import bcrypt from "bcryptjs";
 import invariant from "tiny-invariant";
 
 import { prisma } from "~/db.server";
-
-export type { User } from "@prisma/client";
 
 invariant(process.env.BOOTSTRAP_ACCESS_KEY, "BOOTSTRAP_ACCESS_KEY must be set");
 
@@ -36,7 +32,7 @@ export async function verifyLogin(accessKey: string): Promise<Userh | null> {
     };
   }
 
-  const contestTeam = await prisma.contestTeam.findUnique({
+  const contestTeam = await prisma.team.findUnique({
     where: { accessKey },
   });
 
@@ -45,6 +41,7 @@ export async function verifyLogin(accessKey: string): Promise<Userh | null> {
       isAdmin: false,
       userId: contestTeam.id.toString(),
       teamNumber: contestTeam.id,
+      teamName: contestTeam.teamName,
     };
   } else {
     return null;
@@ -58,7 +55,7 @@ export async function getUserById(userId: string): Promise<Userh | null> {
       userId,
     };
   } else {
-    const contestTeam = await prisma.contestTeam.findUnique({
+    const contestTeam = await prisma.team.findUnique({
       where: { id: Number(userId) },
     });
 
@@ -67,7 +64,7 @@ export async function getUserById(userId: string): Promise<Userh | null> {
           isAdmin: false,
           userId: contestTeam.id.toString(),
           teamNumber: contestTeam.id,
-          teamName: contestTeam.chosenName,
+          teamName: contestTeam.teamName,
         }
       : null;
   }

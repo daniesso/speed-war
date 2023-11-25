@@ -1,4 +1,3 @@
-import { Contest } from "@prisma/client";
 import { prisma } from "~/db.server";
 import { range } from "~/utils";
 
@@ -11,10 +10,18 @@ export async function getContest() {
       numPlayers: true,
       numProblems: true,
       nextPlayerSubmission: true,
-      ContestTeams: true,
+      teams: true,
     },
     where: { id: 1 },
   });
+}
+
+export async function deleteContest() {
+  const deleted = await prisma.contest.delete({
+    where: { id: 1 },
+  });
+
+  console.log(deleted);
 }
 
 export async function createContest(numPlayers: number, numProblems: number) {
@@ -27,11 +34,11 @@ export async function createContest(numPlayers: number, numProblems: number) {
   });
 
   for (const teamNumber of range(1, numPlayers)) {
-    prisma.contestTeam.create({
+    await prisma.team.create({
       data: {
         id: teamNumber,
         contestId: contestId,
-        chosenName: `Team ${teamNumber}`,
+        teamName: `Team ${teamNumber}`,
       },
     });
   }

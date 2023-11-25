@@ -1,20 +1,22 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-
 import { Outlet, useLoaderData } from "@remix-run/react";
 
-import { createContest, getContest } from "~/models/contest.server";
-
+import { getContest } from "~/models/contest.server";
 import { requireUser } from "~/session.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const user = await requireUser(request);
-  const contest = (await getContest()) ?? (await createContest(4, 4));
+  const contest = await getContest();
   return json({ contest, user });
 };
 
 export default function Index() {
   const { contest } = useLoaderData<typeof loader>();
+
+  if (!contest) {
+    return <h1>Ingen aktiv konkurranse</h1>;
+  }
 
   return (
     <div className="flex h-full min-h-screen flex-col">
