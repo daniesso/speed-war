@@ -30,7 +30,7 @@ export class SpeedWarCLIWrapper {
             resolve(parsed);
           } catch (error) {
             reject(
-              `An unhandled error occured while trying to parse json from CLI: ${error}`,
+              `An unhandled error occured while trying to parse json from CLI: ${error}. Output was: ${stdout}`,
             );
           }
         }
@@ -72,6 +72,12 @@ type CLITestRunResult =
 interface CLITestResult {
   test_number: number;
   run_result: CLITestRunResult;
+}
+
+interface CLIInternalError {
+  InternalError: {
+    error: string;
+  };
 }
 
 interface CLIBuildError {
@@ -121,11 +127,16 @@ export const isBuildError = (value: unknown): value is CLIBuildError => {
   return !!value && typeof value == "object" && "BuildError" in value;
 };
 
+export const isInternalError = (value: unknown): value is CLIInternalError => {
+  return !!value && typeof value == "object" && "InternalError" in value;
+};
+
 export const isCLIOutput = (value: unknown): value is CLIOutput => {
   return (
     isTestResults(value) ||
     isTestTimeout(value) ||
     isBuildTimeout(value) ||
-    isBuildError(value)
+    isBuildError(value) ||
+    isInternalError(value)
   );
 };

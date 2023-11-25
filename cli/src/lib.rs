@@ -292,8 +292,10 @@ fn build_docker_image(context_directory: &path::Path) -> Result<(), String> {
 
     if !build_output.status.success() {
         Err(format!(
-            "Docker image build failed: {:?}",
+            "Docker image build failed: {:?}\n{:?}",
             std::str::from_utf8(&build_output.stdout)
+                .expect("Expected to be able to parse stderr output"),
+            std::str::from_utf8(&build_output.stderr)
                 .expect("Expected to be able to parse stderr output")
         ))
     } else {

@@ -21,6 +21,7 @@ import {
   ITestExecutor,
   TestResult,
   TestResultPrelimTestsError,
+  TestResultPrelimTestsIncorrect,
   TestResultServerError,
 } from "./types";
 
@@ -40,7 +41,7 @@ export class TestExecutor implements ITestExecutor {
     const tmpDir = await tmp.dir();
 
     try {
-      return await this.runTestsInsideContext(
+      return await this.runTestsInContext(
         problem,
         lang,
         submissionData,
@@ -54,7 +55,7 @@ export class TestExecutor implements ITestExecutor {
     }
   }
 
-  async runTestsInsideContext(
+  async runTestsInContext(
     problem: number,
     lang: SubmissionLang,
     submissionData: Buffer,
@@ -208,21 +209,24 @@ export class TestExecutor implements ITestExecutor {
   }
 
   prelimFailure(cliOutput: CLIOutput): TestResult {
-    invariant(!isTestResults(cliOutput), "Already checked for succcess");
-
-    if (isBuildError(cliOutput)) {
+    if (
+      isTestResults(cliOutput) &&
+      cliOutput.TestResults.verdict == "Rejected"
+    ) {
+      return {
+        type: "prelim_tests_incorrect",
+      } satisfies TestResultPrelimTestsIncorrect;
+    } else if (isBuildError(cliOutput)) {
       return {
         type: "prelim_tests_error",
         error: "Docker build failed",
       } satisfies TestResultPrelimTestsError;
-    }
-    if (isBuildTimeout(cliOutput)) {
+    } else if (isBuildTimeout(cliOutput)) {
       return {
         type: "prelim_tests_error",
         error: "Tests timed out",
       };
-    }
-    if (isTestTimeout(cliOutput)) {
+    } else if (isTestTimeout(cliOutput)) {
       return {
         type: "prelim_tests_error",
         error: "Tests timeout out",

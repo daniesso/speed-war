@@ -25,7 +25,7 @@ export default function Index() {
         </H1>
         {!user.isAdmin ? (
           <Link to={"team"}>
-            <p>{user.teamName}</p>{" "}
+            <p className="text-1xl font-bold">{user.teamName}</p>{" "}
           </Link>
         ) : null}
 

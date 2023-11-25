@@ -34,6 +34,9 @@ enum CLIResponse {
         verdict: CLIResponseVerdict,
         tests: Vec<TestResult>,
     },
+    InternalError {
+        error: String,
+    },
 }
 
 fn main() {
@@ -63,7 +66,13 @@ fn main() {
             );
         }
         Err(error) => {
-            debug!("Program experienced an error: {:?}", error)
+            debug!("Program experienced an error: {:?}", error);
+
+            println!(
+                "{}",
+                to_string_pretty(&CLIResponse::InternalError { error: error })
+                    .expect("Failed to serialize result to json")
+            )
         }
     }
 }

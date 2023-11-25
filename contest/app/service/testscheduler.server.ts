@@ -15,7 +15,6 @@ import { ITestExecutor, TestResult, TestResultServerError } from "./types";
 const POLL_PERIOD_MS = 2_000;
 
 export class TestScheduler {
-  private handle: Promise<void> | undefined;
   private testExecutor: ITestExecutor;
 
   constructor(testExecutor: ITestExecutor) {
@@ -24,7 +23,7 @@ export class TestScheduler {
 
   start() {
     console.log("Starting Test Scheduler");
-    this.handle = this.runForever();
+    this.runForever();
   }
 
   private async runForever(): Promise<void> {
