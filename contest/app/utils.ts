@@ -3,6 +3,8 @@ import { useMemo } from "react";
 
 import type { User } from "~/models/user.server";
 
+import { Submission } from "./models/submission.server";
+
 const DEFAULT_REDIRECT = "/";
 
 /**
@@ -79,3 +81,12 @@ export function validateEmail(email: unknown): email is string {
 export function range(from: number, toInclusive: number): number[] {
   return [...Array(toInclusive - from + 1).keys()].map((idx) => from + idx);
 }
+
+export const mapSubmissionSubmittedAt = (
+  submissions: (Omit<Submission, "submittedAt"> & { submittedAt: string })[],
+): Submission[] => {
+  return submissions.map((submission) => ({
+    ...submission,
+    submittedAt: new Date(Date.parse(submission.submittedAt)),
+  }));
+};

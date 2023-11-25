@@ -8,10 +8,10 @@ generator client {
 }
 
 model Contest {
-  id                   Int @id  @default(1)
-  numTeams           Int
-  numProblems          Int
-  nextPlayerSubmission Int @default(1)
+  id                    Int @id  @default(1)
+  numTeams              Int
+  numProblems           Int
+  nextTeamSubmission  Int @default(1)
 
   teams Team[]
 }
@@ -20,7 +20,7 @@ model Team {
   id          Int     @id
   contest     Contest @relation(fields: [contestId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   contestId   Int
-  teamName  String
+  teamName    String
   accessKey   String  @unique @default(uuid())
 
   submissions Submission[]
@@ -30,11 +30,13 @@ model Submission {
   id            String    @id @default(cuid())
   submittedAt   DateTime  @default(now())
   state         String
-  scoreMs       Int
-  scoreJ        Int
+  scoreMs       Int?
+  scoreJ        Int?
 
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   teamId Int
 
   problemId Int
+
+  submissionData Bytes
 }

@@ -8,7 +8,7 @@ interface BaseUser {
   isAdmin: boolean;
 }
 
-type Userh = AdminUser | ContestTeam;
+export type User = AdminUser | ContestTeam;
 
 interface AdminUser extends BaseUser {
   isAdmin: true;
@@ -24,7 +24,7 @@ interface ContestTeam extends BaseUser {
 
 const ADMIN_USER_ID = "admin";
 
-export async function verifyLogin(accessKey: string): Promise<Userh | null> {
+export async function verifyLogin(accessKey: string): Promise<User | null> {
   if (accessKey == process.env.BOOTSTRAP_ACCESS_KEY) {
     return {
       isAdmin: true,
@@ -48,7 +48,7 @@ export async function verifyLogin(accessKey: string): Promise<Userh | null> {
   }
 }
 
-export async function getUserById(userId: string): Promise<Userh | null> {
+export async function getUserById(userId: string): Promise<User | null> {
   if (userId == ADMIN_USER_ID) {
     return {
       isAdmin: true,

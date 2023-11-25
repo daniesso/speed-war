@@ -7,6 +7,8 @@ import { json, redirect } from "@remix-run/node";
 import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import invariant from "tiny-invariant";
 
+import { Button } from "~/components/button";
+import { H1 } from "~/components/header";
 import {
   ContestWithTeams,
   createContest,
@@ -89,16 +91,11 @@ function ActiveContest({
         </table>
       </div>
       <div>
-        <h1 className="text-3xl font-bold">Slett konkurranse</h1>
-        <Form method="post" className="" name="Hello">
+        <H1>Slett konkurranse</H1>
+        <Form method="post" className="w-96">
           <input type="hidden" name="contest-action" value="delete-contest" />
 
-          <button
-            type="submit"
-            className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 focus:bg-blue-400"
-          >
-            Slett
-          </button>
+          <Button type="submit">Slett</Button>
 
           {actionData?.error != undefined ? (
             <div>{actionData.error}</div>
@@ -115,7 +112,7 @@ function CreateContest(): React.ReactNode {
   return (
     <div className="w-96">
       <Form method="post" className="flex flex-col gap-5">
-        <h1 className="text-3xl font-bold">Opprett ny konkurranse</h1>
+        <H1>Opprett ny konkurranse</H1>
         <input type="hidden" name="contest-action" value="create-contest" />
 
         <label className="flex flex-col gap-1">
@@ -132,12 +129,7 @@ function CreateContest(): React.ReactNode {
             className="flex-1 rounded-md border-2 border-blue-500 px-3 text-lg leading-loose"
           />
         </label>
-        <button
-          type="submit"
-          className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 focus:bg-blue-400"
-        >
-          Opprett
-        </button>
+        <Button type="submit">Opprett</Button>
         {actionData?.error != undefined ? <div>{actionData.error}</div> : null}
       </Form>
     </div>

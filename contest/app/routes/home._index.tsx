@@ -1,7 +1,8 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Outlet, useLoaderData } from "@remix-run/react";
+import { Link, useLoaderData } from "@remix-run/react";
 
+import { H1 } from "~/components/header";
 import { getSubmissions } from "~/models/submission.server";
 import { requireUser } from "~/session.server";
 import { range } from "~/utils";
@@ -20,7 +21,7 @@ export default function Index() {
   const { scores, contest } = useLoaderData<typeof loader>();
 
   if (!contest || !scores) {
-    return <h1>Ingen aktiv konkurranse</h1>;
+    return <H1>Ingen aktiv konkurranse</H1>;
   }
 
   return (
@@ -33,7 +34,9 @@ export default function Index() {
                 <tr>
                   <th>Lag</th>
                   {range(1, contest.numProblems).map((problem) => (
-                    <th key={problem}>Oppgave {problem}</th>
+                    <th key={problem}>
+                      <Link to={`problem/${problem}`}>Oppgave {problem}</Link>
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -53,7 +56,6 @@ export default function Index() {
                 ))}
               </tbody>
             </table>
-            <Outlet />
           </div>
         </div>
       </main>

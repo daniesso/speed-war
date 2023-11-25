@@ -9,7 +9,7 @@ export async function getContest() {
       id: true,
       numTeams: true,
       numProblems: true,
-      nextPlayerSubmission: true,
+      nextTeamSubmission: true,
       teams: true,
     },
     where: { id: 1 },
