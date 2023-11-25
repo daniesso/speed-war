@@ -90,3 +90,7 @@ export const mapSubmissionSubmittedAt = (
     submittedAt: new Date(Date.parse(submission.submittedAt)),
   }));
 };
+
+export function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

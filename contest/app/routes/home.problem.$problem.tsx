@@ -12,9 +12,11 @@ import { H1 } from "~/components/header";
 import { SubmissionList } from "~/components/submission-list";
 import { getContest } from "~/models/contest.server";
 import {
+  SUBMISSION_LANGUAGES,
   createSubmission,
   deleteSubmission,
   getTeamSubmissionsSortedByRecency,
+  isSubmissionLang,
 } from "~/models/submission.server";
 import { User } from "~/models/user.server";
 import { requireUser } from "~/session.server";
@@ -52,6 +54,7 @@ const actionUploadSubmission = async (
   invariant(!user.isAdmin);
 
   const submission = formData.get("submission") as Blob | null;
+  const lang = formData.get("submission-lang");
 
   if (!submission || submission.size == 0) {
     return json({
@@ -59,6 +62,8 @@ const actionUploadSubmission = async (
       createdSubmission: null,
     });
   }
+
+  invariant(isSubmissionLang(lang), `Unsupported submission language ${lang}`);
 
   if (submission.size > 5 * ONE_MB) {
     return json({
@@ -72,6 +77,7 @@ const actionUploadSubmission = async (
   const createdSubmission = await createSubmission(
     user.teamNumber,
     problem,
+    lang,
     data,
   );
 
@@ -130,13 +136,36 @@ export default function SubmitPage() {
 
       <Form method="post" encType="multipart/form-data">
         <div className="flex flex-col gap-10 w-96">
+          <div className="flex justify-between items-center">
+            <label htmlFor="submission-lang">Velg språk</label>
+            <select
+              id="submission-lang"
+              name="submission-lang"
+              className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-72 p-2.5"
+            >
+              {SUBMISSION_LANGUAGES.map((lang) => (
+                <option key={lang} value={lang}>
+                  {lang}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <input
             type="hidden"
             name="problem-action"
             value="upload-submission"
           />
-          <input name="submission" type="file" accept="application/zip" />
-
+          <div className="flex justify-between items-center">
+            <label htmlFor="submission">Velg zip-fil</label>
+            <input
+              id="submission"
+              name="submission"
+              type="file"
+              accept="application/zip"
+              className="w-44"
+            />
+          </div>
           <Button type="submit" disabled={user.isAdmin}>
             Last opp
           </Button>

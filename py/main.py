@@ -7,6 +7,7 @@ from websockets.server import serve
 from websockets import ConnectionClosed
 from threading import Thread
 
+WEBSOCKET_PORT = 3100
 EVENT_FREQUENCY_HZ = 2
 
 class TuyaDevice:
@@ -89,7 +90,6 @@ async def handle(websocket):
     tuyaDevice.add_callback(callback)
     await asyncio.Future()
 
-WEBSOCKET_PORT = 3001
 
 async def main():
     async with serve(handle, "localhost", WEBSOCKET_PORT):

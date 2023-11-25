@@ -16,22 +16,22 @@ function SubmissionRow({
     queued: "bg-gray-200",
     success: "bg-green-200",
     failure: "bg-red-200",
+    running: "bg-yellow-200",
   };
 
   return (
     <div
-      className={`rounded flex flex-row justify-between gap-8 py-1 px-2 ${
-        bgColor[submission.state]
-      }`}
+      className={`rounded flex flex-row py-1 px-2 ${bgColor[submission.state]}`}
     >
-      <p className="basis-1/7">Oppg {submission.problemId}</p>
-      <p className="basis-2/7">{submission.submittedAt.toLocaleString()}</p>
-      <p className="basis-1/7">{submission.state}</p>
-      <p className="basis-1/7">{submission.scoreMs ?? "-"} ms</p>
-      <p className="basis-1/7">{submission.scoreJ ?? "-"} J</p>
+      <p className="w-2/12">Oppg {submission.problemId}</p>
+      <p className="w-1/12">{submission.lang}</p>
+      <p className="w-3/12">{submission.submittedAt.toLocaleString("no")}</p>
+      <p className="w-2/12">{submission.state}</p>
+      <p className="w-2/12">{submission.scoreMs ?? "-"} ms</p>
+      <p className="w-1/12">{submission.scoreJ ?? "-"} J</p>
       <Form
         method="post"
-        className="basis-1/7"
+        className="w-1/12"
         action={`/home/problem/${submission.problemId}`}
       >
         <input type="hidden" name="problem-action" value="delete-submission" />
@@ -53,7 +53,7 @@ export function SubmissionList({
   onDeleteRedirectTo?: string;
 }): JSX.Element {
   return (
-    <div className="flex flex-col gap-5 max-w-2xl">
+    <div className="flex flex-col gap-5 max-w-4xl">
       <H1>Opplastinger</H1>
       {submissions.map((submission) => (
         <SubmissionRow

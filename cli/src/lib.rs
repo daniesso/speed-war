@@ -1,4 +1,5 @@
 use clap::ValueEnum;
+use log::debug;
 use serde::{Deserialize, Serialize};
 use std::thread;
 use std::{
@@ -110,7 +111,7 @@ fn get_tests(context_directory: &path::Path) -> Result<Vec<Test>, String> {
 
 fn run_tests(context_directory: &path::Path) -> Result<Vec<TestResult>, String> {
     let tests = get_tests(context_directory)?;
-    println!("Running {} tests", tests.len());
+    debug!("Running {} tests", tests.len());
 
     let mut test_results = Vec::new();
 
@@ -177,10 +178,10 @@ pub struct TestResult {
 fn run_test(test: &Test) -> Result<TestResult, String> {
     let docker_run_cmd = format!("docker run -i app < {:?} > {:?}", test.input, test.answer);
 
-    println!("Running docker image with command: {}", docker_run_cmd);
+    debug!("Running docker image with command: {}", docker_run_cmd);
 
     let monitorService = EnergyMonitor {
-        ws_url: "ws://localhost:3001".to_string(),
+        ws_url: "ws://localhost:3100".to_string(),
     };
 
     let monitor = monitorService.start()?;
@@ -235,23 +236,23 @@ fn prepare_context(
     lang: Lang,
 ) -> Result<tempfile::TempDir, String> {
     let tmp_dir = tempdir().map_err(|_| "Could not create a temp directory")?;
-    println!("Created tmp dir {:?}", tmp_dir.path());
+    debug!("Created tmp dir {:?}", tmp_dir.path());
     let source_dir_target = tmp_dir.path().join("src");
-    println!(
+    debug!(
         "Copying source code from {:?} into {:?}",
         source_code_path, source_dir_target
     );
     copy_dir_all(source_code_path, &source_dir_target)
         .map_err(|x| format!("Could copy source code content ({})", x))?;
-    println!(
+    debug!(
         "Copying base image from {:?} into {:?}",
         lang.base_image(),
         tmp_dir.path()
     );
     copy_dir_all(lang.base_image(), &tmp_dir)
-        .map_err(|x| format!("Could not read source code content {}", x))?;
+        .map_err(|x| format!("Could not read base image content {}", x))?;
 
-    println!(
+    debug!(
         "Build context has the following content: {}",
         std::str::from_utf8(
             &process::Command::new("sh")
@@ -270,7 +271,7 @@ fn prepare_context(
 fn build_docker_image(context_directory: &path::Path) -> Result<(), String> {
     let docker_build_cmd = format!("docker build {:?} -t app", context_directory);
 
-    println!("Building docker image with command: {}", docker_build_cmd);
+    debug!("Building docker image with command: {}", docker_build_cmd);
     let build_output = if cfg!(target_os = "windows") {
         process::Command::new("cmd")
             .arg("/C")

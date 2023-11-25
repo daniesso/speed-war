@@ -5,6 +5,8 @@ use serde_json::to_string_pretty;
 use SpeedWarCLI::{run_problem, TestRunResult};
 use SpeedWarCLI::{Lang, TestResult};
 
+use log::debug;
+
 #[derive(Parser)]
 struct Cli {
     lang: Lang,
@@ -12,9 +14,9 @@ struct Cli {
 }
 
 #[derive(Serialize)]
-enum CLIResponseTestSuccess {
-    Correct,
-    Incorrect,
+enum CLIResponseVerdict {
+    Accepted,
+    Rejected,
 }
 
 #[derive(Serialize)]
@@ -28,13 +30,15 @@ enum CLIResponse {
     TestTimeout {
         error: String,
     },
-    TestsResults {
-        result: CLIResponseTestSuccess,
+    TestResults {
+        verdict: CLIResponseVerdict,
         tests: Vec<TestResult>,
     },
 }
 
 fn main() {
+    env_logger::init();
+
     let args = Cli::parse();
 
     match run_problem(&args.problem_path, args.lang) {
@@ -44,22 +48,22 @@ fn main() {
                 _ => false,
             });
             let test_result_response = if all_tests_successful {
-                CLIResponseTestSuccess::Correct
+                CLIResponseVerdict::Accepted
             } else {
-                CLIResponseTestSuccess::Incorrect
+                CLIResponseVerdict::Rejected
             };
 
             println!(
                 "{}",
-                to_string_pretty(&CLIResponse::TestsResults {
-                    result: test_result_response,
+                to_string_pretty(&CLIResponse::TestResults {
+                    verdict: test_result_response,
                     tests: results
                 })
                 .expect("Failed to serialize result to json")
             );
         }
         Err(error) => {
-            println!("Program experienced an error: {:?}", error)
+            debug!("Program experienced an error: {:?}", error)
         }
     }
 }

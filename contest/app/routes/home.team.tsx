@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useLocation } from "@remix-run/react";
 import invariant from "tiny-invariant";
 
 import { SubmissionList } from "~/components/submission-list";
@@ -35,6 +35,7 @@ export const meta: MetaFunction = () => [{ title: "Team" }];
 export default function TeamPage() {
   const { teamSubmissions: _teamSubmissions } = useLoaderData<typeof loader>();
   const teamSubmissions = mapSubmissionSubmittedAt(_teamSubmissions);
+  const location = useLocation();
 
   return (
     <div className="flex flex-col gap-10 p-10">

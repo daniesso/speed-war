@@ -126,6 +126,7 @@ const SelectSubmissionDefaultFields = {
   scoreJ: true,
   teamId: true,
   problemId: true,
+  lang: true,
   submissionData: false,
 };
 export async function getSubmissions(
@@ -143,7 +144,7 @@ export async function getSubmissions(
         teamId: team,
       },
     })
-    .then((submissions) => submissions.map(parseDefaultSubmission));
+    .then((submissions) => submissions.map(mapDefaultSubmission));
 
   return new Submissions(contest, submissions);
 }
@@ -161,7 +162,20 @@ export async function getTeamSubmissionsSortedByRecency(
   );
 }
 
-export type SubmissionState = "queued" | "success" | "failure";
+export type SubmissionState = "queued" | "success" | "failure" | "running";
+export type SubmissionLang = "rust";
+
+const isSubmissionState = (value: unknown): value is SubmissionState => {
+  return (
+    typeof value == "string" &&
+    ["queued", "success", "failure", "running"].includes(value)
+  );
+};
+
+export const SUBMISSION_LANGUAGES = ["rust"];
+
+export const isSubmissionLang = (value: unknown): value is SubmissionLang =>
+  typeof value === "string" && SUBMISSION_LANGUAGES.includes(value);
 
 export interface Submission {
   id: string;
@@ -171,31 +185,35 @@ export interface Submission {
   scoreJ: number | null;
   teamId: number;
   problemId: number;
+  lang: SubmissionLang;
 }
 
-const isSubmissionState = (value: string): value is SubmissionState => {
-  return ["queued", "success", "failure"].includes(value);
-};
-
-function parseDefaultSubmission(
-  submission: Omit<Submission, "state"> & { state: string },
+function mapDefaultSubmission(
+  submission: Omit<Omit<Submission, "state">, "lang"> & {
+    state: string;
+    lang: string;
+  },
 ): Submission {
   const submissionState = submission.state;
-
+  const lang = submission.lang;
   invariant(
     isSubmissionState(submissionState),
     `invalid submission state ${submissionState}`,
   );
 
+  invariant(isSubmissionLang(lang), `invalid submission language ${lang}`);
+
   return {
     ...submission,
     state: submissionState,
+    lang: lang,
   };
 }
 
 export async function createSubmission(
   team: number,
   problem: number,
+  lang: SubmissionLang,
   submissionData: ArrayBuffer,
 ): Promise<Submission> {
   const submission = await prisma.submission.create({
@@ -203,6 +221,7 @@ export async function createSubmission(
       state: "queued",
       teamId: team,
       problemId: problem,
+      lang: lang,
       submissionData: Buffer.from(submissionData),
       scoreJ: null,
       scoreMs: null,
@@ -210,7 +229,7 @@ export async function createSubmission(
     select: SelectSubmissionDefaultFields,
   });
 
-  return parseDefaultSubmission(submission);
+  return mapDefaultSubmission(submission);
 }
 
 export async function deleteSubmission(submissionId: string) {
@@ -219,4 +238,86 @@ export async function deleteSubmission(submissionId: string) {
       id: submissionId,
     },
   });
+}
+
+export async function getNextEligibleSubmission(
+  team: number,
+): Promise<Submission | null> {
+  const nextSubmission = await prisma.submission.findFirst({
+    select: SelectSubmissionDefaultFields,
+    where: {
+      teamId: team,
+      state: "queued",
+    },
+    orderBy: {
+      submittedAt: "asc",
+    },
+  });
+
+  return nextSubmission ? mapDefaultSubmission(nextSubmission) : null;
+}
+
+export async function getHasMoreEligibleSubmissions(): Promise<boolean> {
+  const nextSubmission = await prisma.submission.findFirst({
+    select: { id: true },
+    where: {
+      state: "queued",
+    },
+  });
+
+  return !!nextSubmission;
+}
+
+export async function getSubmissionData(submissionId: string): Promise<Buffer> {
+  const result = await prisma.submission.findFirst({
+    select: {
+      submissionData: true,
+    },
+    where: {
+      id: submissionId,
+    },
+  });
+
+  invariant(!!result, "Expected submission to exist here");
+
+  return result?.submissionData;
+}
+
+export async function updateSubmission({
+  submissionId,
+  state,
+  scoreJ,
+  scoreMs,
+}: {
+  submissionId: string;
+  state: SubmissionState;
+  scoreJ: number | null;
+  scoreMs: number | null;
+}): Promise<Submission> {
+  const submission = await prisma.submission.update({
+    data: {
+      state: state,
+      scoreJ: scoreJ,
+      scoreMs: scoreMs,
+    },
+    select: SelectSubmissionDefaultFields,
+    where: { id: submissionId },
+  });
+
+  return mapDefaultSubmission(submission);
+}
+
+export async function updateSubmissionState(
+  submissionId: string,
+  state: SubmissionState,
+): Promise<Submission> {
+  const submission = await prisma.submission.update({
+    data: {
+      state: state,
+    },
+    select: SelectSubmissionDefaultFields,
+    where: { id: submissionId },
+  });
+
+  return mapDefaultSubmission(submission);
 }
