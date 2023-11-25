@@ -7,7 +7,7 @@ export async function getContest() {
   return prisma.contest.findFirst({
     select: {
       id: true,
-      numPlayers: true,
+      numTeams: true,
       numProblems: true,
       nextPlayerSubmission: true,
       teams: true,
@@ -24,16 +24,16 @@ export async function deleteContest() {
   console.log(deleted);
 }
 
-export async function createContest(numPlayers: number, numProblems: number) {
+export async function createContest(numTeams: number, numProblems: number) {
   const { id: contestId } = await prisma.contest.create({
     select: { id: true },
     data: {
-      numPlayers,
+      numTeams,
       numProblems,
     },
   });
 
-  for (const teamNumber of range(1, numPlayers)) {
+  for (const teamNumber of range(1, numTeams)) {
     await prisma.team.create({
       data: {
         id: teamNumber,

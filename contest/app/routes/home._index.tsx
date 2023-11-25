@@ -2,19 +2,24 @@ import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { Outlet, useLoaderData } from "@remix-run/react";
 
-import { getContest } from "~/models/contest.server";
+import { getSubmissions } from "~/models/submission.server";
 import { requireUser } from "~/session.server";
+import { range } from "~/utils";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const user = await requireUser(request);
-  const contest = await getContest();
-  return json({ contest, user });
+  const submissions = await getSubmissions();
+  const contest = submissions?.getContest();
+
+  const scores = submissions?.getScoreTable();
+
+  return json({ user, scores, contest });
 };
 
 export default function Index() {
-  const { contest } = useLoaderData<typeof loader>();
+  const { scores, contest } = useLoaderData<typeof loader>();
 
-  if (!contest) {
+  if (!contest || !scores) {
     return <h1>Ingen aktiv konkurranse</h1>;
   }
 
@@ -27,18 +32,21 @@ export default function Index() {
               <thead>
                 <tr>
                   <th>Lag</th>
-                  {[...Array(contest.numProblems).keys()].map((idx) => (
-                    <th key={idx}>Oppgave {idx + 1}</th>
+                  {range(1, contest.numProblems).map((problem) => (
+                    <th key={problem}>Oppgave {problem}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {[...Array(contest.numPlayers).keys()].map((idx) => (
-                  <tr key={idx}>
-                    <td>Lag {idx + 1}</td>
-                    {[...Array(contest.numProblems).keys()].map((idx) => (
-                      <td className="px-10 py-2" key={idx}>
-                        0 ms, 0 J
+                {range(1, contest.numTeams).map((team) => (
+                  <tr key={team}>
+                    <td>Lag {team}</td>
+                    {range(1, contest.numProblems).map((problem) => (
+                      <td className="px-10 py-2" key={problem}>
+                        <div className=" flex flex-row gap-4">
+                          <p>{scores[team][problem].scoreMs ?? "?"} ms</p>
+                          <p>{scores[team][problem].scoreJ ?? "?"} J</p>
+                        </div>
                       </td>
                     ))}
                   </tr>

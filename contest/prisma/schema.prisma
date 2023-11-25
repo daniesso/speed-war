@@ -9,7 +9,7 @@ generator client {
 
 model Contest {
   id                   Int @id  @default(1)
-  numPlayers           Int
+  numTeams           Int
   numProblems          Int
   nextPlayerSubmission Int @default(1)
 
@@ -35,4 +35,6 @@ model Submission {
 
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   teamId Int
+
+  problemId Int
 }

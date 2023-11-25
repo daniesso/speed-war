@@ -33,10 +33,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   invariant(!!contestAction);
 
   if (contestAction == "create-contest") {
-    const numPlayers = Number(formData.get("num-players"));
+    const numTeams = Number(formData.get("num-players"));
     const numProblems = Number(formData.get("num-problems"));
 
-    if (isNaN(numPlayers) || numPlayers < 1 || numPlayers > 20) {
+    if (isNaN(numTeams) || numTeams < 1 || numTeams > 20) {
       return json({ error: "Ugyldig antall spillere" });
     }
 
@@ -44,7 +44,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return json({ error: "Ugyldig antall oppgaver" });
     }
 
-    await createContest(numPlayers, numProblems);
+    await createContest(numTeams, numProblems);
   } else if (contestAction == "delete-contest") {
     const contest = await getContest();
     if (!contest) {
