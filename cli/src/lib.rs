@@ -1,6 +1,8 @@
 use clap::ValueEnum;
 use log::debug;
 use serde::{Deserialize, Serialize};
+use std::cmp::max;
+use std::io::Read;
 use std::thread;
 use std::{
     fs, io,
@@ -19,6 +21,7 @@ pub struct RunResult {
 #[derive(ValueEnum, Clone, Debug)]
 pub enum Lang {
     Rust,
+    Python,
 }
 
 impl Lang {
@@ -26,6 +29,7 @@ impl Lang {
         let base = path::Path::new("base-images");
         match self {
             Lang::Rust => base.join("rust"),
+            Lang::Python => base.join("python"),
         }
     }
 }
@@ -64,18 +68,18 @@ struct Test {
 
 fn get_tests(context_directory: &path::Path) -> Result<Vec<Test>, String> {
     let subfolders: Vec<_> = fs::read_dir(context_directory.join("src").join("tests"))
-        .map_err(|x| "Could not read contents of tests folder")?
+        .map_err(|_| "Could not read contents of tests folder")?
         .map(|entry| {
-            let entry = entry.map_err(|x| "")?;
-            let ty = entry.file_type().map_err(|x| "")?;
+            let entry = entry.map_err(|_| "Could not read entry")?;
+            let ty = entry.file_type().map_err(|_| "Could not read file type")?;
 
             if ty.is_dir() {
-                if let Some(Ok(testNumber)) = entry
+                if let Some(Ok(test_number)) = entry
                     .file_name()
                     .to_str()
                     .map(|file_name| file_name.parse::<u8>())
                 {
-                    Ok((testNumber, entry.path()))
+                    Ok((test_number, entry.path()))
                 } else {
                     Err(format!(
                         "Could not parse test number {:?}",
@@ -127,33 +131,68 @@ fn run_tests(context_directory: &path::Path) -> Result<Vec<TestResult>, String> 
     Ok(test_results)
 }
 
-fn files_have_same_content(file1: &path::Path, file2: &path::Path) -> Result<bool, String> {
-    let f1 = fs::File::open(file1)
-        .map_err(|x| format!("Couldn't open file {:?} in order to check diff", file1))?;
-    let f2 = fs::File::open(file2)
-        .map_err(|x| format!("Couldn't open file {:?} in order to check diff", file2))?;
+fn answer_is_equal_to_solution(test: &Test) -> Result<bool, String> {
+    debug!("Comparing files {:?} and {:?}", test.answer, test.solution);
+    let f1 = fs::File::open(&test.answer).map_err(|_| {
+        format!(
+            "Couldn't open file {:?} in order to check diff",
+            test.answer
+        )
+    })?;
+    let f2 = fs::File::open(&test.solution).map_err(|_| {
+        format!(
+            "Couldn't open file {:?} in order to check diff",
+            test.solution
+        )
+    })?;
 
-    // Check if file sizes are different
-    if f1.metadata().unwrap().len() != f2.metadata().unwrap().len() {
-        return Ok(false);
-    }
+    let mut reader1 = io::BufReader::new(f1);
+    let mut reader2 = io::BufReader::new(f2);
 
-    // Use buf readers since they are much faster
-    let f1 = io::BufReader::new(f1);
-    let f2 = io::BufReader::new(f2);
+    let mut buff1: [u8; 4096] = [0; 4096];
+    let mut buff2: [u8; 4096] = [0; 4096];
 
-    // Do a byte to byte comparison of the two files
-    for (b1, b2) in f1.buffer().iter().zip(f2.buffer().iter()) {
-        if b1 != b2 {
+    let mut page = 0;
+    loop {
+        let num_bytes_read1 = reader1
+            .read(&mut buff1)
+            .expect("Unexpected read failure (buff1)");
+        let num_bytes_read2 = reader2
+            .read(&mut buff2)
+            .expect("Unexpected read failure (buff2)");
+
+        let debug_log_diff = || {
+            debug!(
+                "Bytes {}-{} are not equal.\nAnswer={:?}\nSolution={:?}",
+                page * 4096,
+                page * 4096 + max(num_bytes_read1, num_bytes_read2),
+                std::str::from_utf8(&buff1[0..num_bytes_read1])
+                    .expect("Expected to be able to parse buffer data as utf8"),
+                std::str::from_utf8(&buff2[0..num_bytes_read2])
+                    .expect("Expected to be able to parse buffer data as utf8")
+            );
+        };
+
+        if num_bytes_read1 == 0 && num_bytes_read2 == 0 {
+            return Ok(true);
+        } else if num_bytes_read1 != num_bytes_read2 {
+            debug_log_diff();
             return Ok(false);
+        } else {
+            for idx in 0..num_bytes_read1 {
+                if buff1[idx] != buff2[idx] {
+                    debug_log_diff();
+                    return Ok(false);
+                }
+            }
         }
-    }
 
-    return Ok(true);
+        page += 1;
+    }
 }
 
 fn compare_answer(test: &Test) -> Result<bool, String> {
-    files_have_same_content(&test.answer, &test.solution)
+    answer_is_equal_to_solution(test)
 }
 
 #[derive(Serialize)]
@@ -180,11 +219,11 @@ fn run_test(test: &Test) -> Result<TestResult, String> {
 
     debug!("Running docker image with command: {}", docker_run_cmd);
 
-    let monitorService = EnergyMonitor {
+    let monitor_service = EnergyMonitor {
         ws_url: "ws://localhost:3100".to_string(),
     };
 
-    let monitor = monitorService.start()?;
+    let monitor = monitor_service.start()?;
 
     let start_time = chrono::offset::Utc::now();
     let run_output = if cfg!(target_os = "windows") {

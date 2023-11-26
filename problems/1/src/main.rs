@@ -8,5 +8,5 @@ fn main() {
         .collect::<Vec<String>>()
         .join(" ");
 
-    println!("{},", answer);
+    println!("{}", answer);
 }
