@@ -231,7 +231,11 @@ fn run_test(container: Rc<DockerContainer>, test: &Test) -> Result<TestResult, S
 
     let start_time = chrono::offset::Utc::now();
 
-    let result = container.exec("sh -c /app/entry.sh".to_string(), &test.input, &test.answer);
+    let result = container.exec(
+        "sh -c 'ulimit -v 512000 && /app/entry.sh'".to_string(),
+        &test.input,
+        &test.answer,
+    );
 
     let end_time = chrono::offset::Utc::now();
     let elapsed_ms = (end_time - start_time).num_milliseconds();

@@ -39,10 +39,7 @@ impl DockerImage {
     }
 
     pub fn run(self) -> Result<DockerContainer, DockerError> {
-        let docker_run_cmd = format!(
-            "docker run -d -m 512MB --memory-swap 512MB --quiet {}",
-            self.image_name
-        );
+        let docker_run_cmd = format!("docker run -d --quiet {}", self.image_name);
         debug!("Running docker container with command {}", docker_run_cmd);
         let result = run_cmd(docker_run_cmd).map_err(|x| DockerError::UnexpectedError {
             error: format!("Docker run error: {}", x),
