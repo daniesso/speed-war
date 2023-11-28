@@ -1,8 +1,12 @@
+pub mod docker;
+
 use clap::ValueEnum;
+use docker::{DockerContainer, DockerError, DockerImage};
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::cmp::max;
 use std::io::Read;
+use std::rc::Rc;
 use std::thread;
 use std::{
     fs, io,
@@ -12,7 +16,6 @@ use std::{
 };
 use tempfile::tempdir;
 use websocket::{ClientBuilder, OwnedMessage};
-
 pub struct RunResult {
     pub time_elapsed_ms: u32,
     pub energy_consumed_j: u32,
@@ -54,9 +57,9 @@ pub fn run_problem(
 ) -> Result<Vec<TestResult>, String> {
     let tmp_dir = prepare_context(source_code_path, lang)?;
 
-    build_docker_image(tmp_dir.path())?;
+    let docker_image = build_docker_image(tmp_dir.path()).map_err(|err| err.to_string())?;
 
-    run_tests(tmp_dir.path())
+    run_tests(docker_image, tmp_dir.path())
 }
 
 struct Test {
@@ -113,14 +116,19 @@ fn get_tests(context_directory: &path::Path) -> Result<Vec<Test>, String> {
     }
 }
 
-fn run_tests(context_directory: &path::Path) -> Result<Vec<TestResult>, String> {
+fn run_tests(
+    docker_image: DockerImage,
+    context_directory: &path::Path,
+) -> Result<Vec<TestResult>, String> {
     let tests = get_tests(context_directory)?;
     debug!("Running {} tests", tests.len());
 
     let mut test_results = Vec::new();
 
+    let container = Rc::new(docker_image.run().map_err(|err| err.to_string())?);
+
     for test in tests {
-        let test_run = run_test(&test);
+        let test_run = run_test(container.clone(), &test);
         if let Ok(result) = test_run {
             test_results.push(result);
         } else if let Err(error) = test_run {
@@ -214,11 +222,7 @@ pub struct TestResult {
     pub run_result: TestRunResult,
 }
 
-fn run_test(test: &Test) -> Result<TestResult, String> {
-    let docker_run_cmd = format!("docker run -i app < {:?} > {:?}", test.input, test.answer);
-
-    debug!("Running docker image with command: {}", docker_run_cmd);
-
+fn run_test(container: Rc<DockerContainer>, test: &Test) -> Result<TestResult, String> {
     let monitor_service = EnergyMonitor {
         ws_url: "ws://localhost:3100".to_string(),
     };
@@ -226,18 +230,8 @@ fn run_test(test: &Test) -> Result<TestResult, String> {
     let monitor = monitor_service.start()?;
 
     let start_time = chrono::offset::Utc::now();
-    let run_output = if cfg!(target_os = "windows") {
-        process::Command::new("cmd")
-            .arg("/C")
-            .arg(docker_run_cmd)
-            .output()
-    } else {
-        process::Command::new("sh")
-            .arg("-c")
-            .arg(docker_run_cmd)
-            .output()
-    }
-    .map_err(|run_error| format!("Failed to start Docker image: {}", run_error))?;
+
+    let result = container.exec("sh -c /app/entry.sh".to_string(), &test.input, &test.answer);
 
     let end_time = chrono::offset::Utc::now();
     let elapsed_ms = (end_time - start_time).num_milliseconds();
@@ -245,18 +239,17 @@ fn run_test(test: &Test) -> Result<TestResult, String> {
         .stop()
         .calculate_consumed_energy(start_time, end_time);
 
-    Ok(TestResult {
-        test_number: test.test_number,
-        run_result: if !run_output.status.success() {
-            TestRunResult::TestError {
-                error: format!(
-                    "Docker run failed: {:?}",
-                    std::str::from_utf8(&run_output.stderr)
-                        .expect("Expected to be able to parse stderr output")
-                ),
-            }
-        } else {
-            if compare_answer(test)? {
+    match result {
+        Err(DockerError::UnsuccessfulCommand { stderr }) => Ok(TestResult {
+            test_number: test.test_number,
+            run_result: TestRunResult::TestError {
+                error: format!("Docker run failed: {:?}", stderr),
+            },
+        }),
+        Err(DockerError::UnexpectedError { error }) => Err(error),
+        Ok(_) => Ok(TestResult {
+            test_number: test.test_number,
+            run_result: if compare_answer(test)? {
                 TestRunResult::Correct {
                     stats: TestStats {
                         time_elapsed_ms: elapsed_ms as u32,
@@ -265,9 +258,9 @@ fn run_test(test: &Test) -> Result<TestResult, String> {
                 }
             } else {
                 TestRunResult::Incorrect
-            }
-        },
-    })
+            },
+        }),
+    }
 }
 
 fn prepare_context(
@@ -307,39 +300,8 @@ fn prepare_context(
     Ok(tmp_dir)
 }
 
-fn build_docker_image(context_directory: &path::Path) -> Result<(), String> {
-    let docker_build_cmd = format!("docker build {:?} -t app", context_directory);
-
-    debug!("Building docker image with command: {}", docker_build_cmd);
-    let build_output = if cfg!(target_os = "windows") {
-        process::Command::new("cmd")
-            .arg("/C")
-            .arg(docker_build_cmd)
-            .output()
-    } else {
-        process::Command::new("sh")
-            .arg("-c")
-            .arg(docker_build_cmd)
-            .output()
-    }
-    .map_err(|build_error| {
-        format!(
-            "Could not execute Docker image build command: {}",
-            build_error
-        )
-    })?;
-
-    if !build_output.status.success() {
-        Err(format!(
-            "Docker image build failed: {:?}\n{:?}",
-            std::str::from_utf8(&build_output.stdout)
-                .expect("Expected to be able to parse stderr output"),
-            std::str::from_utf8(&build_output.stderr)
-                .expect("Expected to be able to parse stderr output")
-        ))
-    } else {
-        Ok(())
-    }
+fn build_docker_image(context_directory: &path::Path) -> Result<DockerImage, DockerError> {
+    DockerImage::build(context_directory)
 }
 
 #[derive(Deserialize, Debug)]

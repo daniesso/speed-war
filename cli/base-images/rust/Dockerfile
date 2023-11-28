@@ -4,6 +4,8 @@ COPY src .
 RUN cargo build --release
 
 FROM debian:bullseye-slim
-COPY --from=builder /app/target/release /app/
-CMD ["/app/app"]
+WORKDIR /app
+COPY entry.sh .
 
+COPY --from=builder /app/target/release /app/
+CMD ["sleep", "infinity"]

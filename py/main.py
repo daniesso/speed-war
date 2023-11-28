@@ -12,7 +12,7 @@ EVENT_FREQUENCY_HZ = 2
 
 class TuyaDevice:
 
-    PLUG_IP = "192.168.0.136"
+    PLUG_IP = "10.42.0.245"
     PLUG_VERSION = "3.3"
 
     def __init__(self):
