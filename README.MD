@@ -21,7 +21,7 @@ RUST_LOG=debug cargo run -- [language] [problem_path]
 In order to measure energy:
 
 - a Tuya Smart Plug device is required
-- The python server (py/main.py) must first be started.
+- The python server (`py/main.py`) must first be started.
 
 Then run:
 
