@@ -1,0 +1,16 @@
+name: Build and create release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+
+env:
+  BOOTSTRAP_ACCESS_KEY: ${{ secrets.BOOTSTRAP_ACCESS_KEY }}
+
+jobs:
+  trigger_pull:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger pull
+        run: curl -XPOST https://00f8-188-113-114-173.ngrok-free.app/trigger_pull -H "authorization:$BOOTSTRAP_ACCESS_KEY" || true
