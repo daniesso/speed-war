@@ -28,9 +28,12 @@ import {
 export class TestExecutor implements ITestExecutor {
   basePath: string;
   cli: SpeedWarCLIWrapper;
-  constructor(basePath: string) {
+  constructor(basePath: string, energyMeasurementWsURL: string | null) {
     this.basePath = basePath;
-    this.cli = new SpeedWarCLIWrapper(path.join(basePath, "cli"));
+    this.cli = new SpeedWarCLIWrapper(
+      path.join(basePath, "cli"),
+      energyMeasurementWsURL,
+    );
   }
 
   async runTests(
@@ -200,7 +203,9 @@ export class TestExecutor implements ITestExecutor {
     });
 
     const scoreMs = scores.map(({ ms }) => ms).reduce((a, b) => a + b, 0);
-    const scoreJ = scores.map(({ j }) => j).reduce((a, b) => a + b, 0);
+    const scoreJ = scores
+      .map(({ j }) => j)
+      .reduce((a, b) => (a == null || b == null ? null : a + b), 0);
 
     return {
       scoreMs,

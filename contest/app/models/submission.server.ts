@@ -321,3 +321,12 @@ export async function updateSubmissionState(
 
   return mapDefaultSubmission(submission);
 }
+
+export async function getRunningSubmission(): Promise<Submission | null> {
+  const submission = await prisma.submission.findFirst({
+    select: SelectSubmissionDefaultFields,
+    where: { state: "running" },
+  });
+
+  return submission ? mapDefaultSubmission(submission) : null;
+}

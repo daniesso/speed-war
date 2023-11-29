@@ -6,13 +6,20 @@ import { SubmissionLang } from "~/models/submission.server";
 
 export class SpeedWarCLIWrapper {
   cliBasePath: string;
+  energyMeasurementWsURL: string | null;
 
-  constructor(cliBasePath: string) {
+  constructor(cliBasePath: string, energyMeasurementWsURL: string | null) {
     this.cliBasePath = cliBasePath;
+    this.energyMeasurementWsURL = energyMeasurementWsURL;
   }
 
   async run(lang: SubmissionLang, contextDir: string): Promise<CLIOutput> {
-    const cmd = `cd ${this.cliBasePath} && ./SpeedWarCLI ${lang} ${contextDir}`;
+    const wsUrlEnvVar = this.energyMeasurementWsURL
+      ? `ENERGY_MONITOR_WS_URL=${this.energyMeasurementWsURL}`
+      : "";
+    const cmd = `cd ${this.cliBasePath} && ${
+      wsUrlEnvVar + " "
+    }./SpeedWarCLI ${lang} ${contextDir}`;
 
     return new Promise((resolve, reject) =>
       exec(cmd, (error, stdout, stderr) => {
@@ -43,7 +50,7 @@ interface CLITestRunResultCorrect {
   Correct: {
     stats: {
       time_elapsed_ms: number;
-      energy_consumed_j: number;
+      energy_consumed_j: number | null;
     };
   };
 }

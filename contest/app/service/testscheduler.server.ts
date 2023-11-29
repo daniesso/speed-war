@@ -5,6 +5,7 @@ import {
   Submission,
   getHasMoreEligibleSubmissions,
   getNextEligibleSubmission,
+  getRunningSubmission,
   getSubmissionData,
   updateSubmission,
   updateSubmissionState,
@@ -23,7 +24,7 @@ export class TestScheduler {
 
   start() {
     console.log("Starting Test Scheduler");
-    this.runForever();
+    this.cleanUpExistingRunningJobs().finally(() => this.runForever());
   }
 
   private async runForever(): Promise<void> {
@@ -127,6 +128,19 @@ export class TestScheduler {
     } else {
       await updateSubmission({
         submissionId: submissionId,
+        state: "failure",
+        scoreJ: null,
+        scoreMs: null,
+      });
+    }
+  }
+
+  private async cleanUpExistingRunningJobs(): Promise<void> {
+    const runningSubmission = await getRunningSubmission();
+
+    if (runningSubmission) {
+      updateSubmission({
+        submissionId: runningSubmission.id,
         state: "failure",
         scoreJ: null,
         scoreMs: null,
