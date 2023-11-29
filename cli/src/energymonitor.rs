@@ -13,7 +13,7 @@ pub struct EnergyMonitor {
 
 pub struct MeasurementResult {
     pub time_ms: u32,
-    pub energy_j: Option<u32>,
+    pub energy_j: Option<f64>,
 }
 
 pub fn measure_fn<T>(
@@ -40,7 +40,7 @@ pub fn measure_fn<T>(
         result,
         MeasurementResult {
             time_ms: (end_time - start_time).num_milliseconds() as u32,
-            energy_j: energy_consumed_j.map(|e| e as u32),
+            energy_j: energy_consumed_j,
         },
     ))
 }
@@ -165,7 +165,7 @@ impl EnergyMonitorResult {
         self,
         start: chrono::DateTime<chrono::Utc>,
         end: chrono::DateTime<chrono::Utc>,
-    ) -> u64 {
+    ) -> f64 {
         const STEP_SIZE_MS: usize = 50;
 
         // Assert is sorted
@@ -200,7 +200,6 @@ impl EnergyMonitorResult {
                 w.power * (step_size as f64) / 1000.0
             })
             .sum::<f64>()
-            .round() as u64
     }
 }
 

@@ -207,6 +207,7 @@ function mapDefaultSubmission(
     ...submission,
     state: submissionState,
     lang: lang,
+    scoreJ: submission.scoreJ ? Number(submission.scoreJ.toFixed(1)) : null,
   };
 }
 

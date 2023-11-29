@@ -208,7 +208,7 @@ fn compare_answer(test: &Test) -> Result<bool, String> {
 #[derive(Serialize)]
 pub struct TestStats {
     time_elapsed_ms: u32,
-    energy_consumed_j: Option<u32>,
+    energy_consumed_j: Option<f64>,
 }
 
 #[derive(Serialize)]

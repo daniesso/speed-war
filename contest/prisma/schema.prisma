@@ -31,7 +31,7 @@ model Submission {
   submittedAt   DateTime  @default(now())
   state         String
   scoreMs       Int?
-  scoreJ        Int?
+  scoreJ        Float?
 
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   teamId Int
