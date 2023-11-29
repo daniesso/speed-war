@@ -14,16 +14,12 @@ import {
   isBuildError,
   isBuildTimeout,
   isCLITestRunResultCorrect,
+  isError,
+  isInternalError,
+  isRunResultError,
   isTestResults,
-  isTestTimeout,
 } from "./speedwarcliwrapper.server";
-import {
-  ITestExecutor,
-  TestResult,
-  TestResultPrelimTestsError,
-  TestResultPrelimTestsIncorrect,
-  TestResultServerError,
-} from "./types";
+import { ITestExecutor, TestResult, TestResultServerError } from "./types";
 
 export class TestExecutor implements ITestExecutor {
   basePath: string;
@@ -214,64 +210,61 @@ export class TestExecutor implements ITestExecutor {
   }
 
   prelimFailure(cliOutput: CLIOutput): TestResult {
-    if (
-      isTestResults(cliOutput) &&
-      cliOutput.TestResults.verdict == "Rejected"
-    ) {
-      return {
-        type: "prelim_tests_incorrect",
-      } satisfies TestResultPrelimTestsIncorrect;
-    } else if (isBuildError(cliOutput)) {
-      return {
-        type: "prelim_tests_error",
-        error: "Docker build failed",
-      } satisfies TestResultPrelimTestsError;
-    } else if (isBuildTimeout(cliOutput)) {
-      return {
-        type: "prelim_tests_error",
-        error: "Tests timed out",
-      };
-    } else if (isTestTimeout(cliOutput)) {
-      return {
-        type: "prelim_tests_error",
-        error: "Tests timeout out",
-      };
+    return this.mapFailureResponse(cliOutput, true);
+  }
+
+  secretTestsFailure(cliOutput: CLIOutput): TestResult {
+    return this.mapFailureResponse(cliOutput, false);
+  }
+
+  mapFailureResponse(cliOutput: CLIOutput, isPrelimTests: boolean): TestResult {
+    if (isTestResults(cliOutput)) {
+      invariant(
+        cliOutput.TestResults.verdict == "Rejected",
+        "Verdict should be Rejected here",
+      );
+
+      const testErrors = cliOutput.TestResults.tests
+        .map((test) =>
+          isRunResultError(test.run_result) ? test.run_result : null,
+        )
+        .filter((test) => test != null)
+        .map((run_result) => run_result!);
+
+      if (testErrors.length > 0) {
+        return {
+          type: isPrelimTests ? "prelim_tests_error" : "speed_tests_error",
+          error: testErrors[0].TestError.error,
+        };
+      } else {
+        return {
+          type: isPrelimTests
+            ? "prelim_tests_incorrect"
+            : "speed_tests_incorrect",
+        };
+      }
+    } else if (isError(cliOutput)) {
+      if (isBuildError(cliOutput.Error.error)) {
+        return {
+          type: "build_error",
+          error: cliOutput.Error.error.BuildError.error,
+        };
+      } else if (isBuildTimeout(cliOutput.Error.error)) {
+        return {
+          type: "build_error",
+          error: "Build timed out",
+        };
+      } else if (isInternalError(cliOutput.Error.error)) {
+        return {
+          type: "internal_server_error",
+          error: cliOutput.Error.error.InternalError.error,
+        };
+      }
     }
 
     return {
       type: "internal_server_error",
-      error: `Unrecognized CLI output: ${cliOutput}`,
+      error: `Unrecognized CLI response: ${cliOutput}`,
     };
-  }
-
-  secretTestsFailure(cliOutput: CLIOutput): TestResult {
-    if (
-      isTestResults(cliOutput) &&
-      cliOutput.TestResults.verdict == "Rejected"
-    ) {
-      return {
-        type: "speed_tests_incorrect",
-      };
-    } else if (isBuildError(cliOutput)) {
-      return {
-        type: "speed_tests_error",
-        error: "Docker build failed",
-      };
-    } else if (isBuildTimeout(cliOutput)) {
-      return {
-        type: "speed_tests_error",
-        error: "Build timed out",
-      };
-    } else if (isTestTimeout(cliOutput)) {
-      return {
-        type: "speed_tests_error",
-        error: "Tests timeout out",
-      };
-    } else {
-      return {
-        type: "internal_server_error",
-        error: `Unrecognized CLI output: ${cliOutput}`,
-      };
-    }
   }
 }

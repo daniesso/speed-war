@@ -139,6 +139,7 @@ impl Drop for DockerImage {
 pub enum DockerError {
     UnsuccessfulCommand { stderr: String },
     UnexpectedError { error: String },
+    Timeout,
 }
 
 impl DockerError {
@@ -148,6 +149,7 @@ impl DockerError {
                 format!("Docker command was unsuccessful: {}", stderr)
             }
             DockerError::UnexpectedError { error } => error,
+            DockerError::Timeout => "Timed out".to_string(),
         }
     }
 }

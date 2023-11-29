@@ -56,12 +56,20 @@ fn copy_dir_all(src: impl AsRef<path::Path>, dst: impl AsRef<path::Path>) -> io:
 pub fn run_problem(
     source_code_path: &std::path::PathBuf,
     lang: Lang,
-) -> Result<Vec<TestResult>, String> {
-    let tmp_dir = prepare_context(source_code_path, lang)?;
+) -> Result<Vec<TestResult>, CLIResponseError> {
+    let tmp_dir = prepare_context(source_code_path, lang)
+        .map_err(|err| CLIResponseError::InternalError { error: err })?;
 
-    let docker_image = build_docker_image(tmp_dir.path()).map_err(|err| err.to_string())?;
+    let docker_image = build_docker_image(tmp_dir.path()).map_err(|err| match err {
+        DockerError::Timeout => CLIResponseError::BuildTimeout,
+        DockerError::UnsuccessfulCommand { stderr } => {
+            CLIResponseError::BuildError { error: stderr }
+        }
+        DockerError::UnexpectedError { error } => CLIResponseError::InternalError { error },
+    })?;
 
     run_tests(docker_image, tmp_dir.path())
+        .map_err(|err| CLIResponseError::InternalError { error: err })
 }
 
 struct Test {
@@ -127,7 +135,11 @@ fn run_tests(
 
     let mut test_results = Vec::new();
 
-    let container = Rc::new(docker_image.run().map_err(|err| err.to_string())?);
+    let container = Rc::new(
+        docker_image
+            .run()
+            .map_err(|err| format!("Starting container failed: {}", err.to_string()))?,
+    );
 
     for test in tests {
         let test_run = run_test(container.clone(), &test);
@@ -224,6 +236,13 @@ pub struct TestResult {
     pub run_result: TestRunResult,
 }
 
+#[derive(Serialize, Debug)]
+pub enum CLIResponseError {
+    BuildError { error: String },
+    BuildTimeout,
+    InternalError { error: String },
+}
+
 fn run_test(container: Rc<DockerContainer>, test: &Test) -> Result<TestResult, String> {
     let ws_url = env::var("ENERGY_MONITOR_WS_URL").ok();
 
@@ -236,6 +255,12 @@ fn run_test(container: Rc<DockerContainer>, test: &Test) -> Result<TestResult, S
             test_number: test.test_number,
             run_result: TestRunResult::TestError {
                 error: format!("Docker run failed: {:?}", stderr),
+            },
+        }),
+        Err(DockerError::Timeout) => Ok(TestResult {
+            test_number: test.test_number,
+            run_result: TestRunResult::TestError {
+                error: "Test timed out".to_string(),
             },
         }),
         Err(DockerError::UnexpectedError { error }) => Err(error),

@@ -59,7 +59,7 @@ interface CLITestRunResultIncorrect {
   Incorrect: Record<string, string>;
 }
 
-interface CLITestRunResultError {
+export interface CLITestRunResultError {
   TestError: {
     error: string;
   };
@@ -81,6 +81,12 @@ interface CLITestResult {
   run_result: CLITestRunResult;
 }
 
+export const isRunResultError = (
+  value: CLITestRunResult,
+): value is CLITestRunResultError => {
+  return "TestError" in value;
+};
+
 interface CLIInternalError {
   InternalError: {
     error: string;
@@ -94,13 +100,11 @@ interface CLIBuildError {
 }
 
 interface CLIBuildTimeout {
-  BuildTimeout: {
-    error: string;
-  };
+  BuildTimeout: null;
 }
 
-interface CLITestTimeout {
-  TestTimeout: {
+interface CLIInternalError {
+  InternalError: {
     error: string;
   };
 }
@@ -112,38 +116,40 @@ export interface CLITestResults {
   };
 }
 
-export type CLIOutput =
-  | CLIBuildError
-  | CLIBuildTimeout
-  | CLITestTimeout
-  | CLITestResults;
+interface CLIError {
+  Error: {
+    error: CLIBuildError | CLIBuildTimeout | CLIInternalError;
+  };
+}
+
+export type CLIOutput = CLIError | CLITestResults;
 
 export const isTestResults = (value: unknown): value is CLITestResults => {
   return !!value && typeof value == "object" && "TestResults" in value;
 };
 
-export const isTestTimeout = (value: unknown): value is CLITestTimeout => {
-  return !!value && typeof value == "object" && "TestTimeout" in value;
+export const isError = (value: unknown): value is CLIError => {
+  return !!value && typeof value == "object" && "Error" in value;
 };
 
-export const isBuildTimeout = (value: unknown): value is CLIBuildTimeout => {
-  return !!value && typeof value == "object" && "BuildTimeout" in value;
+export const isBuildTimeout = (
+  value: CLIError["Error"]["error"],
+): value is CLIBuildTimeout => {
+  return "BuildTimeout" in value;
 };
 
-export const isBuildError = (value: unknown): value is CLIBuildError => {
-  return !!value && typeof value == "object" && "BuildError" in value;
+export const isBuildError = (
+  value: CLIError["Error"]["error"],
+): value is CLIBuildError => {
+  return "BuildError" in value;
 };
 
-export const isInternalError = (value: unknown): value is CLIInternalError => {
-  return !!value && typeof value == "object" && "InternalError" in value;
+export const isInternalError = (
+  value: CLIError["Error"]["error"],
+): value is CLIInternalError => {
+  return "InternalError" in value;
 };
 
 export const isCLIOutput = (value: unknown): value is CLIOutput => {
-  return (
-    isTestResults(value) ||
-    isTestTimeout(value) ||
-    isBuildTimeout(value) ||
-    isBuildError(value) ||
-    isInternalError(value)
-  );
+  return isTestResults(value) || isError(value);
 };

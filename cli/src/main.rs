@@ -2,7 +2,7 @@ use clap::Parser;
 use serde::Serialize;
 use serde_json::to_string_pretty;
 
-use SpeedWarCLI::{run_problem, TestRunResult};
+use SpeedWarCLI::{run_problem, CLIResponseError, TestRunResult};
 use SpeedWarCLI::{Lang, TestResult};
 
 use log::debug;
@@ -21,21 +21,12 @@ enum CLIResponseVerdict {
 
 #[derive(Serialize)]
 enum CLIResponse {
-    BuildError {
-        error: String,
-    },
-    BuildTimeout {
-        error: String,
-    },
-    TestTimeout {
-        error: String,
-    },
     TestResults {
         verdict: CLIResponseVerdict,
         tests: Vec<TestResult>,
     },
-    InternalError {
-        error: String,
+    Error {
+        error: CLIResponseError,
     },
 }
 
@@ -70,7 +61,7 @@ fn main() {
 
             println!(
                 "{}",
-                to_string_pretty(&CLIResponse::InternalError { error: error })
+                to_string_pretty(&CLIResponse::Error { error })
                     .expect("Failed to serialize result to json")
             )
         }

@@ -1,6 +1,6 @@
 import { SubmissionLang } from "~/models/submission.server";
 
-type TestResultType =
+export type TestResultType =
   | "success"
   | "build_error"
   | "prelim_tests_incorrect"
@@ -28,6 +28,11 @@ export interface TestResultPrelimTestsError extends ITestResult {
   error: string;
 }
 
+export interface TestResultBuildError extends ITestResult {
+  type: "build_error";
+  error: string;
+}
+
 export interface TestResultSpeedTestsIncorrect extends ITestResult {
   type: "speed_tests_incorrect";
 }
@@ -44,6 +49,7 @@ export interface TestResultServerError extends ITestResult {
 
 export type TestResult =
   | TestResultSuccess
+  | TestResultBuildError
   | TestResultPrelimTestsIncorrect
   | TestResultPrelimTestsError
   | TestResultSpeedTestsIncorrect
