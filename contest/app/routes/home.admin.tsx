@@ -15,7 +15,7 @@ import {
   deleteContest as deleteContest,
   getContest,
 } from "~/models/contest.server";
-import { requireUser } from "~/session.server";
+import { getUser, requireUser } from "~/session.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const user = await requireUser(request);
@@ -30,6 +30,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
+  const user = await requireUser(request);
+  invariant(user?.isAdmin, "Must be admin to create contest");
 
   const contestAction = formData.get("contest-action");
   invariant(!!contestAction);
