@@ -103,7 +103,7 @@ impl Drop for DockerContainer {
     fn drop(&mut self) {
         let kill_cmd = format!("docker kill {}", self.container_name);
         debug!("Dropping DockerContainer: {}", kill_cmd);
-        let result = run_cmd(kill_cmd, TEN_SECONDS)
+        let result = run_cmd(kill_cmd, TWENTY_SECONDS)
             .expect(format!("Couldn't kill container {}", self.container_name).as_str());
 
         if !result.status.success() {
@@ -113,7 +113,7 @@ impl Drop for DockerContainer {
         let rm_cmd = format!("docker rm {}", self.container_name);
         debug!("Dropping DockerContainer: {}", rm_cmd);
 
-        let result = run_cmd(rm_cmd, TEN_SECONDS).expect("Couldn't remove container");
+        let result = run_cmd(rm_cmd, TWENTY_SECONDS).expect("Couldn't remove container");
 
         if !result.status.success() {
             debug!("Dropping DockerContainer: Removing the Docker container was unsuccesful")
@@ -127,7 +127,7 @@ impl Drop for DockerImage {
 
         debug!("Dropping DockerImage: {}", rm_image);
 
-        let result = run_cmd(rm_image, TEN_SECONDS)
+        let result = run_cmd(rm_image, TWENTY_SECONDS)
             .expect(format!("Couldn't remove image {}", self.image_name).as_str());
 
         if !result.status.success() {
@@ -223,4 +223,4 @@ const IMAGE_BUILD_TIMEOUT: Duration = Duration::from_secs(60);
 const CONTAINER_STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
 const CONTAINER_EXEC_TIMEOUT: Duration = Duration::from_secs(60);
 
-const TEN_SECONDS: Duration = Duration::from_secs(10);
+const TWENTY_SECONDS: Duration = Duration::from_secs(20);
