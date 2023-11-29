@@ -3,13 +3,13 @@ pub mod energymonitor;
 
 use clap::ValueEnum;
 use docker::{DockerContainer, DockerError, DockerImage};
-use energymonitor::EnergyMonitor;
+use energymonitor::{measure_fn, EnergyMonitor};
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::cmp::max;
 use std::io::Read;
 use std::rc::Rc;
-use std::thread;
+use std::{env, thread};
 use std::{
     fs, io,
     path::{self},
@@ -208,7 +208,7 @@ fn compare_answer(test: &Test) -> Result<bool, String> {
 #[derive(Serialize)]
 pub struct TestStats {
     time_elapsed_ms: u32,
-    energy_consumed_j: u32,
+    energy_consumed_j: Option<u32>,
 }
 
 #[derive(Serialize)]
@@ -225,21 +225,11 @@ pub struct TestResult {
 }
 
 fn run_test(container: Rc<DockerContainer>, test: &Test) -> Result<TestResult, String> {
-    let monitor_service = EnergyMonitor {
-        ws_url: "ws://localhost:3100".to_string(),
-    };
+    let ws_url = env::var("ENERGY_MONITOR_WS_URL").ok();
 
-    let monitor = monitor_service.start()?;
-
-    let start_time = chrono::offset::Utc::now();
-
-    let result = container.exec("sh -c /app/entry.sh".to_string(), &test.input, &test.answer);
-
-    let end_time = chrono::offset::Utc::now();
-    let elapsed_ms = (end_time - start_time).num_milliseconds();
-    let energy_consumed_j = monitor
-        .stop()
-        .calculate_consumed_energy(start_time, end_time);
+    let (result, measurement) = measure_fn(ws_url, &|| {
+        container.exec("sh -c /app/entry.sh".to_string(), &test.input, &test.answer)
+    })?;
 
     match result {
         Err(DockerError::UnsuccessfulCommand { stderr }) => Ok(TestResult {
@@ -254,8 +244,8 @@ fn run_test(container: Rc<DockerContainer>, test: &Test) -> Result<TestResult, S
             run_result: if compare_answer(test)? {
                 TestRunResult::Correct {
                     stats: TestStats {
-                        time_elapsed_ms: elapsed_ms as u32,
-                        energy_consumed_j: energy_consumed_j as u32,
+                        time_elapsed_ms: measurement.time_ms,
+                        energy_consumed_j: measurement.energy_j,
                     },
                 }
             } else {

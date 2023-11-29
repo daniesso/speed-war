@@ -11,6 +11,40 @@ pub struct EnergyMonitor {
     pub ws_url: String,
 }
 
+pub struct MeasurementResult {
+    pub time_ms: u32,
+    pub energy_j: Option<u32>,
+}
+
+pub fn measure_fn<T>(
+    energy_monitor_ws_url: Option<String>,
+    func: &dyn Fn() -> T,
+) -> Result<(T, MeasurementResult), String> {
+    let monitor_service = energy_monitor_ws_url.map(|ws_url| EnergyMonitor { ws_url });
+
+    let monitor = match monitor_service.map(|mon| mon.start()) {
+        Some(Err(err)) => Err(err)?,
+        Some(Ok(mon)) => Some(mon),
+        None => None,
+    };
+
+    let start_time = chrono::offset::Utc::now();
+
+    let result = func();
+
+    let end_time = chrono::offset::Utc::now();
+    let energy_consumed_j =
+        monitor.map(|mon| mon.stop().calculate_consumed_energy(start_time, end_time));
+
+    Ok((
+        result,
+        MeasurementResult {
+            time_ms: (end_time - start_time).num_milliseconds() as u32,
+            energy_j: energy_consumed_j.map(|e| e as u32),
+        },
+    ))
+}
+
 type WSClient = websocket::sync::Client<std::net::TcpStream>;
 
 impl EnergyMonitor {
@@ -24,17 +58,23 @@ impl EnergyMonitor {
             .set_nonblocking(true)
             .expect("Could not sent WS client nonblocking");
 
-        let mut messages = vec![EnergyMonitor::receive(&mut client)];
+        let mut messages = vec![EnergyMonitor::receive(&mut client)?];
 
         let mutex = Arc::new(Mutex::new(false));
         let thread_mutex = Arc::clone(&mutex);
 
         let measurements_handle = thread::spawn(move || {
             while *thread_mutex.lock().unwrap() {
-                messages.push(EnergyMonitor::receive(&mut client));
+                messages.push(
+                    EnergyMonitor::receive(&mut client)
+                        .expect("Expected to receive energy measurement"),
+                );
             }
             // One last message
-            messages.push(EnergyMonitor::receive(&mut client));
+            messages.push(
+                EnergyMonitor::receive(&mut client)
+                    .expect("Expected to receive one last energy measurement"),
+            );
 
             messages
         });
@@ -45,17 +85,19 @@ impl EnergyMonitor {
         })
     }
 
-    fn receive(client: &mut WSClient) -> EnergyMeasurement {
-        let message =
-            timeout_recv_message(Duration::from_secs(5), client).expect("Receiving message failed");
+    fn receive(client: &mut WSClient) -> Result<EnergyMeasurement, String> {
+        let message = timeout_recv_message(Duration::from_secs(5), client)
+            .map_err(|err| format!("Receiving web socket message failed: {}", err));
 
-        if let OwnedMessage::Text(text) = message {
-            serde_json::from_str::<EnergyMeasurementDTO>(&text)
-                .expect(format!("Failed to parse message {}", text).as_str())
-                .to_domain()
-        } else {
-            panic!("Unrecognized message from web socket {:?}", message);
-        }
+        message.map(|msg| {
+            if let OwnedMessage::Text(text) = msg {
+                serde_json::from_str::<EnergyMeasurementDTO>(&text)
+                    .map(|res| res.to_domain())
+                    .map_err(|err| format!("Failed to parse message {}", text))
+            } else {
+                Err(format!("Unrecognized message from web socket {:?}", msg))
+            }
+        })?
     }
 }
 
