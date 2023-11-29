@@ -17,7 +17,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   invariant(!!repoBasePath, "Repo base path must be defined");
   const cmd = path.join(repoBasePath, "install.sh");
 
-  await new Promise((resolve, reject) =>
+  new Promise((resolve, reject) =>
     exec(cmd, (error, stdout, stderr) => {
       if (error || stderr) {
         console.error(`Failed to run install.sh: ${stdout}\n${stderr}`);
@@ -30,7 +30,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   return json(
     {
-      result: "ok",
+      result: "started",
     },
     {
       status: 200,
