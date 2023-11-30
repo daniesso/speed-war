@@ -4,8 +4,20 @@ import { json } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
 
 import { H1 } from "~/components/header";
+import {
+  CombinedScoreTable,
+  CorrectnessScoreTable,
+  EnergyScoreTable,
+  ProblemScoreTable,
+  TimeScoreTable,
+} from "~/components/score-tables";
 import { Table } from "~/components/table";
-import { ScoreTable, getSubmissions } from "~/models/submission.server";
+import {
+  IRanking,
+  Ranking,
+  ScoreTable,
+  getSubmissions,
+} from "~/models/submission.server";
 import { requireUser } from "~/session.server";
 import { range } from "~/utils";
 
@@ -16,54 +28,25 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const scores = submissions?.getScoreTable();
 
-  const rank = submissions?.calculateRanking();
+  const ranking = submissions?.calculateRanking();
 
-  return json({ user, scores, contest });
+  return json({ user, scores, contest, ranking });
 };
 
-function ProblemScoreTable({
-  contest,
-  scores,
-}: {
-  contest: Contest;
-  scores: ScoreTable;
-}) {
-  const columns: React.ReactNode[] = [
-    "Lag",
-    ...range(1, contest.numProblems).map((problem) => (
-      <Link to={`problem/${problem}`}>Oppgave {problem}</Link>
-    )),
-  ];
-
-  const rows: React.ReactNode[][] = range(1, contest.numTeams).map((team) => [
-    `Lag ${team}`,
-    ...range(1, contest.numProblems).map((problem) => (
-      <div className=" flex flex-row gap-4">
-        <p>{scores[problem][team].scoreMs ?? "?"} ms</p>
-        <p>{scores[problem][team].scoreJ ?? "?"} J</p>
-      </div>
-    )),
-  ]);
-
-  return <Table headers={columns} rows={rows} />;
-}
-
 export default function Index() {
-  const { scores, contest } = useLoaderData<typeof loader>();
+  const { scores, contest, ranking } = useLoaderData<typeof loader>();
 
-  if (!contest || !scores) {
+  if (!contest || !scores || !ranking) {
     return <H1>Ingen aktiv konkurranse</H1>;
   }
 
   return (
-    <div className="flex h-full min-h-screen flex-col">
-      <main className="flex h-full bg-white">
-        <div className="flex-1 p-6">
-          <div className="v-full">
-            <ProblemScoreTable contest={contest} scores={scores} />
-          </div>
-        </div>
-      </main>
-    </div>
+    <main className="flex flex-col p-12 gap-8">
+      <CombinedScoreTable ranking={ranking} />
+      <CorrectnessScoreTable contest={contest} ranking={ranking} />
+      <TimeScoreTable contest={contest} ranking={ranking} />
+      <EnergyScoreTable contest={contest} ranking={ranking} />
+      <ProblemScoreTable contest={contest} scores={scores} />
+    </main>
   );
 }

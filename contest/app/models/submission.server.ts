@@ -9,7 +9,14 @@ import { getContest } from "./contest.server";
 type Team = number;
 type Problem = number;
 
-export class Ranking {
+export interface IRanking {
+  combined: { team: number; points: number; rank: number }[];
+  speed: Record<Problem | "sum", Record<Team, { points: number }>>;
+  energy: Record<Problem | "sum", Record<Team, { points: number }>>;
+  correctness: Record<Problem | "sum", Record<Team, { points: number }>>;
+}
+
+export class Ranking implements IRanking {
   combined: { team: number; points: number; rank: number }[];
   speed: Record<Problem | "sum", Record<Team, { points: number }>>;
   energy: Record<Problem | "sum", Record<Team, { points: number }>>;
@@ -27,7 +34,7 @@ export class Ranking {
     );
   }
 
-  getCorrectnessPoints(
+  private getCorrectnessPoints(
     contest: Contest,
     scoreTable: ScoreTable,
   ): Record<Problem | "sum", Record<Team, { points: number }>> {
@@ -43,9 +50,10 @@ export class Ranking {
                 [
                   team,
                   {
-                    points: scoreTable[problem][team]
-                      ? contest.numTeams - 1
-                      : 0,
+                    points:
+                      scoreTable[problem][team].scoreMs != null
+                        ? contest.numTeams - 1
+                        : 0,
                   },
                 ] satisfies [Team, { points: number }],
             ),
@@ -75,7 +83,7 @@ export class Ranking {
     };
   }
 
-  getEnergyPoints(
+  private getEnergyPoints(
     contest: Contest,
     scoreTable: ScoreTable,
   ): Record<Problem | "sum", Record<Team, { points: number }>> {
@@ -89,18 +97,24 @@ export class Ranking {
             ({
               team,
               points:
-                scoreTable[team][problem]?.scoreJ != null
-                  ? scoreTable[team][team].scoreJ!
+                scoreTable[problem][team]?.scoreJ != null
+                  ? scoreTable[problem][team].scoreJ!
                   : Number.MAX_VALUE,
             }) satisfies { team: Team; points: number },
         );
 
-        teamsEnergyScore.sort((a, b) => b.points - a.points);
+        teamsEnergyScore.sort((a, b) => a.points - b.points);
+
+        const calcPointsByRank = (idx: number): number =>
+          idx + 1 < teamsEnergyScore.length &&
+          teamsEnergyScore[idx].points == teamsEnergyScore[idx + 1].points
+            ? calcPointsByRank(idx + 1)
+            : contest.numTeams - 1 - idx;
 
         const points = Object.fromEntries(
           teamsEnergyScore.map((score, idx) => [
             score.team,
-            { points: contest.numTeams - 1 - idx },
+            { points: calcPointsByRank(idx) },
           ]),
         );
 
@@ -125,7 +139,7 @@ export class Ranking {
     };
   }
 
-  getSpeedPoints(
+  private getSpeedPoints(
     contest: Contest,
     scoreTable: ScoreTable,
   ): Record<Problem | "sum", Record<Team, { points: number }>> {
@@ -139,18 +153,24 @@ export class Ranking {
             ({
               team,
               points:
-                scoreTable[team][problem]?.scoreMs != null
-                  ? scoreTable[team][team].scoreMs!
+                scoreTable[problem][team]?.scoreMs != null
+                  ? scoreTable[problem][team].scoreMs!
                   : Number.MAX_VALUE,
             }) satisfies { team: Team; points: number },
         );
 
-        teamsTimeScore.sort((a, b) => b.points - a.points);
+        teamsTimeScore.sort((a, b) => a.points - b.points);
+
+        const calcPointsByRank = (idx: number): number =>
+          idx + 1 < teamsTimeScore.length &&
+          teamsTimeScore[idx].points == teamsTimeScore[idx + 1].points
+            ? calcPointsByRank(idx + 1)
+            : contest.numTeams - 1 - idx;
 
         const points = Object.fromEntries(
           teamsTimeScore.map((score, idx) => [
             score.team,
-            { points: contest.numTeams - 1 - idx },
+            { points: calcPointsByRank(idx) },
           ]),
         );
 
@@ -175,7 +195,7 @@ export class Ranking {
     };
   }
 
-  aggregateCombinedPoints(
+  private aggregateCombinedPoints(
     contest: Contest,
     speed: Record<Problem | "sum", Record<Team, { points: number }>>,
     energy: Record<Problem | "sum", Record<Team, { points: number }>>,
@@ -192,7 +212,7 @@ export class Ranking {
         correctness["sum"][team].points,
     }));
 
-    combined.sort((a, b) => a.points - b.points);
+    combined.sort((a, b) => b.points - a.points);
 
     return combined.map((teamCombined, idx) => ({
       ...teamCombined,
@@ -208,15 +228,15 @@ export type ScoreTable = Record<
 
 export class Submissions {
   _contest: Contest;
-  _submissionsByTeamAndProblem: Record<number, Record<number, Submission[]>>;
+  _submissionsByProblemAndTeam: Record<Problem, Record<Team, Submission[]>>;
 
   constructor(contest: Contest, submissions: Submission[]) {
     this._contest = contest;
-    this._submissionsByTeamAndProblem = this.prepareTeamProblemMatrix(() => []);
+    this._submissionsByProblemAndTeam = this.prepareTeamProblemMatrix(() => []);
 
     submissions.forEach((submission) =>
-      this._submissionsByTeamAndProblem[submission.teamId][
-        submission.problemId
+      this._submissionsByProblemAndTeam[submission.problemId][
+        submission.teamId
       ].push(submission),
     );
   }
@@ -225,8 +245,8 @@ export class Submissions {
     return this._contest;
   }
 
-  async calculateRanking(): Promise<Ranking> {
-    return new Ranking(this._contest, await this.getScoreTable());
+  calculateRanking(): Ranking {
+    return new Ranking(this._contest, this.getScoreTable());
   }
 
   teamsRange(): number[] {
@@ -247,28 +267,36 @@ export class Submissions {
   }
 
   getSubmissions(
-    team: number | undefined,
     problem: number | undefined,
+    team: number | undefined,
   ): Submission[] {
-    if (!team) {
-      assert(!problem);
-      return Object.values(this._submissionsByTeamAndProblem)
-        .flatMap((x) => Object.values(x))
-        .flat();
-    } else if (!problem) {
-      return Object.values(this._submissionsByTeamAndProblem[team]).flat();
+    if (problem) {
+      if (team) {
+        return this._submissionsByProblemAndTeam[problem][team];
+      } else {
+        return Object.values(this._submissionsByProblemAndTeam[problem]).flat();
+      }
+    } else {
+      if (team) {
+        return Object.values(this._submissionsByProblemAndTeam)
+          .flatMap((problem) => problem[team])
+          .flat();
+      } else {
+        return Object.values(this._submissionsByProblemAndTeam)
+          .flatMap((x) => Object.values(x))
+          .flat();
+      }
     }
-    return this._submissionsByTeamAndProblem[team][problem];
   }
 
-  getSuccessfulSubmissions(team: number, problem: number): Submission[] {
-    return this.getSubmissions(team, problem).filter(
+  getSuccessfulSubmissions(problem: number, team: number): Submission[] {
+    return this.getSubmissions(problem, team).filter(
       (sub) => sub.state == "success",
     );
   }
 
-  getSubmissionBestTime(team: number, problem: number): Submission | null {
-    return this.getSuccessfulSubmissions(team, problem)
+  getSubmissionBestTime(problem: number, team: number): Submission | null {
+    return this.getSuccessfulSubmissions(problem, team)
       .filter((sub) => sub.scoreMs != null)
       .reduce(
         (a, b) => (a == null || b.scoreMs! < a.scoreMs! ? b : a),
@@ -276,8 +304,8 @@ export class Submissions {
       );
   }
 
-  getSubmissionBestEnergy(team: number, problem: number): Submission | null {
-    return this.getSuccessfulSubmissions(team, problem)
+  getSubmissionBestEnergy(problem: number, team: number): Submission | null {
+    return this.getSuccessfulSubmissions(problem, team)
       .filter((sub) => sub.scoreJ != null)
       .reduce(
         (a, b) => (a == null || b.scoreJ! < a.scoreJ! ? b : a),
@@ -297,8 +325,8 @@ export class Submissions {
     this.problemsTeamsRange().forEach(
       ([problem, team]) =>
         (scoreTable[problem][team] = {
-          scoreJ: this.getSubmissionBestEnergy(team, problem)?.scoreJ ?? null,
-          scoreMs: this.getSubmissionBestTime(team, problem)?.scoreMs ?? null,
+          scoreJ: this.getSubmissionBestEnergy(problem, team)?.scoreJ ?? null,
+          scoreMs: this.getSubmissionBestTime(problem, team)?.scoreMs ?? null,
         }),
     );
 
@@ -310,7 +338,7 @@ export class Submissions {
   ): Record<Problem, Record<Team, T>> {
     const matrix: Record<Problem, Record<Team, T>> = {};
 
-    this.problemsTeamsRange().forEach(([team, problem]) => {
+    this.problemsTeamsRange().forEach(([problem, team]) => {
       matrix[problem] = matrix[problem] ?? {};
       matrix[problem][team] = matrix[problem][team] ?? initial();
     });
@@ -358,7 +386,7 @@ export async function getTeamSubmissionsSortedByRecency(
 
   return (
     submissions
-      ?.getSubmissions(team, problem)
+      ?.getSubmissions(problem, team)
       .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime()) ?? null
   );
 }

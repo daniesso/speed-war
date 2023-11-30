@@ -40,7 +40,7 @@ export async function createContest(numTeams: number, numProblems: number) {
       data: {
         id: teamNumber,
         contestId: contestId,
-        teamName: `Team ${teamNumber}`,
+        teamName: `Lag ${teamNumber}`,
       },
     });
   }
