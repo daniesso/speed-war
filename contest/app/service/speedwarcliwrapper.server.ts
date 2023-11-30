@@ -84,7 +84,7 @@ interface CLITestResult {
 export const isRunResultError = (
   value: CLITestRunResult,
 ): value is CLITestRunResultError => {
-  return "TestError" in value;
+  return typeof value == "object" && "TestError" in value;
 };
 
 interface CLIInternalError {

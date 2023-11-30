@@ -39,6 +39,7 @@ model Submission {
   problemId Int
 
   submissionData Bytes
+  submissionResult Bytes?
 
   lang String
 }

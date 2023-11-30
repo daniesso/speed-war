@@ -124,6 +124,7 @@ export class TestScheduler {
         state: "success",
         scoreJ: testResult.scoreJ,
         scoreMs: testResult.scoreMs,
+        testResult: testResult,
       });
     } else {
       await updateSubmission({
@@ -131,6 +132,7 @@ export class TestScheduler {
         state: "failure",
         scoreJ: null,
         scoreMs: null,
+        testResult: testResult,
       });
     }
   }
@@ -144,6 +146,10 @@ export class TestScheduler {
         state: "failure",
         scoreJ: null,
         scoreMs: null,
+        testResult: {
+          type: "internal_server_error",
+          error: "Stopped",
+        } satisfies TestResultServerError,
       });
     }
   }

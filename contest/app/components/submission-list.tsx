@@ -1,11 +1,11 @@
-import { Form } from "@remix-run/react";
+import { Form, Link } from "@remix-run/react";
 
 import { Submission, SubmissionState } from "~/models/submission.server";
 
 import { Button } from "./button";
 import { H1 } from "./header";
 
-function SubmissionRow({
+export function SubmissionRow({
   submission,
   onDeleteRedirectTo = undefined,
 }: {
@@ -56,11 +56,13 @@ export function SubmissionList({
     <div className="flex flex-col gap-5 max-w-4xl">
       <H1>Opplastinger</H1>
       {submissions.map((submission) => (
-        <SubmissionRow
-          key={submission.id}
-          submission={submission}
-          onDeleteRedirectTo={onDeleteRedirectTo}
-        />
+        <Link to={`/home/submission/${submission.id}`}>
+          <SubmissionRow
+            key={submission.id}
+            submission={submission}
+            onDeleteRedirectTo={onDeleteRedirectTo}
+          />
+        </Link>
       ))}
     </div>
   );

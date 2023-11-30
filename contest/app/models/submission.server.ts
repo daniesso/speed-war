@@ -5,6 +5,7 @@ import { prisma } from "~/db.server";
 import { range } from "~/utils";
 
 import { getContest } from "./contest.server";
+import { TestResult } from "~/service/types";
 
 type Team = number;
 type Problem = number;
@@ -518,17 +519,20 @@ export async function updateSubmission({
   state,
   scoreJ,
   scoreMs,
+  testResult,
 }: {
   submissionId: string;
   state: SubmissionState;
   scoreJ: number | null;
   scoreMs: number | null;
+  testResult: TestResult;
 }): Promise<Submission> {
   const submission = await prisma.submission.update({
     data: {
       state: state,
       scoreJ: scoreJ,
       scoreMs: scoreMs,
+      submissionResult: Buffer.from(JSON.stringify(testResult)),
     },
     select: SelectSubmissionDefaultFields,
     where: { id: submissionId },
@@ -559,4 +563,26 @@ export async function getRunningSubmission(): Promise<Submission | null> {
   });
 
   return submission ? mapDefaultSubmission(submission) : null;
+}
+
+export async function getSubmissionResult(
+  submissionId: string,
+): Promise<(Submission & { submissionResult: TestResult | null }) | null> {
+  const submission = await prisma.submission.findFirst({
+    select: {
+      ...SelectSubmissionDefaultFields,
+      submissionResult: true,
+    },
+    where: { id: submissionId },
+  });
+
+  const submissionResult = submission?.submissionResult?.toString();
+  return submission
+    ? {
+        ...mapDefaultSubmission(submission),
+        submissionResult: submissionResult
+          ? (JSON.parse(submissionResult) as TestResult)
+          : null,
+      }
+    : null;
 }
