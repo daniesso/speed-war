@@ -10,7 +10,9 @@ export function Table({
       <thead>
         <tr>
           {headers.map((header, idx) => (
-            <th key={idx}>{header}</th>
+            <th className="px-4" key={idx}>
+              {header}
+            </th>
           ))}
         </tr>
       </thead>

@@ -34,7 +34,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
   const teamSubmissions = !user.isAdmin
     ? await getTeamSubmissionsSortedByRecency(user.teamNumber, problem)
-    : null;
+    : [];
 
   invariant(
     teamSubmissions,
@@ -129,6 +129,10 @@ export default function SubmitPage() {
     useLoaderData<typeof loader>();
   const teamSubmissions = mapSubmissionSubmittedAt(_teamSubmissions);
   const actionData = useActionData<typeof action>();
+
+  if (user.isAdmin) {
+    return <p>Denne siden fungerer ikke for admin</p>;
+  }
 
   return (
     <div className="flex flex-col gap-10 p-10">
