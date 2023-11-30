@@ -6,6 +6,206 @@ import { range } from "~/utils";
 
 import { getContest } from "./contest.server";
 
+type Team = number;
+type Problem = number;
+
+export class Ranking {
+  combined: { team: number; points: number; rank: number }[];
+  speed: Record<Problem | "sum", Record<Team, { points: number }>>;
+  energy: Record<Problem | "sum", Record<Team, { points: number }>>;
+  correctness: Record<Problem | "sum", Record<Team, { points: number }>>;
+
+  constructor(contest: Contest, scoreTable: ScoreTable) {
+    this.speed = this.getSpeedPoints(contest, scoreTable);
+    this.energy = this.getEnergyPoints(contest, scoreTable);
+    this.correctness = this.getCorrectnessPoints(contest, scoreTable);
+    this.combined = this.aggregateCombinedPoints(
+      contest,
+      this.speed,
+      this.energy,
+      this.correctness,
+    );
+  }
+
+  getCorrectnessPoints(
+    contest: Contest,
+    scoreTable: ScoreTable,
+  ): Record<Problem | "sum", Record<Team, { points: number }>> {
+    const problemsPoints: Record<
+      Problem,
+      Record<Team, { points: number }>
+    > = Object.fromEntries(
+      range(1, contest.numProblems).map((problem) => {
+        const pointsByTeam: Record<Team, { points: number }> =
+          Object.fromEntries(
+            range(1, contest.numTeams).map(
+              (team) =>
+                [
+                  team,
+                  {
+                    points: scoreTable[problem][team]
+                      ? contest.numTeams - 1
+                      : 0,
+                  },
+                ] satisfies [Team, { points: number }],
+            ),
+          );
+
+        return [problem, pointsByTeam] satisfies [
+          Problem,
+          Record<Team, { points: number }>,
+        ];
+      }),
+    );
+
+    const sum: Record<Team, { points: number }> = Object.fromEntries(
+      range(1, contest.numTeams).map((team) => [
+        team,
+        {
+          points: range(1, contest.numProblems)
+            .map((problem) => problemsPoints[problem][team]!.points)
+            .reduce((a, b) => a + b, 0),
+        },
+      ]),
+    );
+
+    return {
+      ...problemsPoints,
+      sum,
+    };
+  }
+
+  getEnergyPoints(
+    contest: Contest,
+    scoreTable: ScoreTable,
+  ): Record<Problem | "sum", Record<Team, { points: number }>> {
+    const problemsPoints: Record<
+      Problem,
+      Record<Team, { points: number }>
+    > = Object.fromEntries(
+      range(1, contest.numProblems).map((problem) => {
+        const teamsEnergyScore = range(1, contest.numTeams).map(
+          (team) =>
+            ({
+              team,
+              points:
+                scoreTable[team][problem]?.scoreJ != null
+                  ? scoreTable[team][team].scoreJ!
+                  : Number.MAX_VALUE,
+            }) satisfies { team: Team; points: number },
+        );
+
+        teamsEnergyScore.sort((a, b) => b.points - a.points);
+
+        const points = Object.fromEntries(
+          teamsEnergyScore.map((score, idx) => [
+            score.team,
+            { points: contest.numTeams - 1 - idx },
+          ]),
+        );
+
+        return [problem, points];
+      }),
+    );
+
+    const sum: Record<Team, { points: number }> = Object.fromEntries(
+      range(1, contest.numTeams).map((team) => [
+        team,
+        {
+          points: range(1, contest.numProblems)
+            .map((problem) => problemsPoints[problem][team]!.points)
+            .reduce((a, b) => a + b, 0),
+        },
+      ]),
+    );
+
+    return {
+      ...problemsPoints,
+      sum,
+    };
+  }
+
+  getSpeedPoints(
+    contest: Contest,
+    scoreTable: ScoreTable,
+  ): Record<Problem | "sum", Record<Team, { points: number }>> {
+    const problemsPoints: Record<
+      Problem,
+      Record<Team, { points: number }>
+    > = Object.fromEntries(
+      range(1, contest.numProblems).map((problem) => {
+        const teamsTimeScore = range(1, contest.numTeams).map(
+          (team) =>
+            ({
+              team,
+              points:
+                scoreTable[team][problem]?.scoreMs != null
+                  ? scoreTable[team][team].scoreMs!
+                  : Number.MAX_VALUE,
+            }) satisfies { team: Team; points: number },
+        );
+
+        teamsTimeScore.sort((a, b) => b.points - a.points);
+
+        const points = Object.fromEntries(
+          teamsTimeScore.map((score, idx) => [
+            score.team,
+            { points: contest.numTeams - 1 - idx },
+          ]),
+        );
+
+        return [problem, points];
+      }),
+    );
+
+    const sum: Record<Team, { points: number }> = Object.fromEntries(
+      range(1, contest.numTeams).map((team) => [
+        team,
+        {
+          points: range(1, contest.numProblems)
+            .map((problem) => problemsPoints[problem][team]!.points)
+            .reduce((a, b) => a + b, 0),
+        },
+      ]),
+    );
+
+    return {
+      ...problemsPoints,
+      sum,
+    };
+  }
+
+  aggregateCombinedPoints(
+    contest: Contest,
+    speed: Record<Problem | "sum", Record<Team, { points: number }>>,
+    energy: Record<Problem | "sum", Record<Team, { points: number }>>,
+    correctness: Record<Problem | "sum", Record<Team, { points: number }>>,
+  ): { team: Team; points: number; rank: number }[] {
+    const combined: { team: Team; points: number }[] = range(
+      1,
+      contest.numTeams,
+    ).map((team) => ({
+      team,
+      points:
+        speed["sum"][team].points +
+        energy["sum"][team].points +
+        correctness["sum"][team].points,
+    }));
+
+    combined.sort((a, b) => a.points - b.points);
+
+    return combined.map((teamCombined, idx) => ({
+      ...teamCombined,
+      rank: idx + 1,
+    }));
+  }
+}
+
+export type ScoreTable = Record<
+  Problem,
+  Record<Team, { scoreMs: number | null; scoreJ: number | null }>
+>;
+
 export class Submissions {
   _contest: Contest;
   _submissionsByTeamAndProblem: Record<number, Record<number, Submission[]>>;
@@ -25,16 +225,20 @@ export class Submissions {
     return this._contest;
   }
 
+  async calculateRanking(): Promise<Ranking> {
+    return new Ranking(this._contest, await this.getScoreTable());
+  }
+
   teamsRange(): number[] {
     return range(1, this._contest.numTeams);
   }
 
-  teamsProblemsRange(): [number, number][] {
-    const teams = this.teamsRange();
+  problemsTeamsRange(): [number, number][] {
     const problems = this.problemsRange();
+    const teams = this.teamsRange();
 
-    return teams.flatMap((team) =>
-      problems.map((problem) => [team, problem] as [number, number]),
+    return problems.flatMap((problem) =>
+      teams.map((team) => [problem, team] as [number, number]),
     );
   }
 
@@ -81,10 +285,7 @@ export class Submissions {
       );
   }
 
-  getScoreTable(): Record<
-    number,
-    Record<number, { scoreMs: number | null; scoreJ: number | null }>
-  > {
+  getScoreTable(): ScoreTable {
     const scoreTable = this.prepareTeamProblemMatrix(
       () =>
         ({ scoreMs: null, scoreJ: null }) as {
@@ -93,9 +294,9 @@ export class Submissions {
         },
     );
 
-    this.teamsProblemsRange().forEach(
-      ([team, problem]) =>
-        (scoreTable[team][problem] = {
+    this.problemsTeamsRange().forEach(
+      ([problem, team]) =>
+        (scoreTable[problem][team] = {
           scoreJ: this.getSubmissionBestEnergy(team, problem)?.scoreJ ?? null,
           scoreMs: this.getSubmissionBestTime(team, problem)?.scoreMs ?? null,
         }),
@@ -106,12 +307,12 @@ export class Submissions {
 
   prepareTeamProblemMatrix<T>(
     initial: () => T,
-  ): Record<number, Record<number, T>> {
-    const matrix: Record<number, Record<number, T>> = {};
+  ): Record<Problem, Record<Team, T>> {
+    const matrix: Record<Problem, Record<Team, T>> = {};
 
-    this.teamsProblemsRange().forEach(([team, problem]) => {
-      matrix[team] = matrix[team] ?? {};
-      matrix[team][problem] = matrix[team][problem] ?? initial();
+    this.problemsTeamsRange().forEach(([team, problem]) => {
+      matrix[problem] = matrix[problem] ?? {};
+      matrix[problem][team] = matrix[problem][team] ?? initial();
     });
 
     return matrix;
