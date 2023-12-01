@@ -1,5 +1,4 @@
 import { exec } from "child_process";
-import path from "path";
 
 import { ActionFunctionArgs, json } from "@remix-run/node";
 import invariant from "tiny-invariant";
@@ -16,7 +15,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   const repoBasePath = process.env.REPO_BASE_PATH;
   invariant(!!repoBasePath, "Repo base path must be defined");
-  const cmd = path.join(repoBasePath, "install.sh");
+  const cmd = `cd ${repoBasePath} && ./install.sh`;
 
   new Promise((resolve, reject) =>
     exec(cmd, (error, stdout, stderr) => {

@@ -32,7 +32,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const maybeMostRecent =
     mostRecent &&
-    Date.now() - mostRecent?.testsCompletedTime?.getTime() < 600_000
+    Date.now() - mostRecent?.testsCompletedTime?.getTime() < 60_000
       ? mostRecent
       : null;
 
