@@ -53,7 +53,9 @@ export function SubmissionRow({
         {onDeleteRedirectTo ? (
           <input type="hidden" name="redirect-to" value={onDeleteRedirectTo} />
         ) : null}
-        <Button variant="inline">Slett</Button>
+        {submission.state != "running" ? (
+          <Button variant="inline">Slett</Button>
+        ) : null}
       </Form>
     </SubmissionBox>
   );
