@@ -1,7 +1,6 @@
-import { Contest } from "@prisma/client";
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Link, useLoaderData } from "@remix-run/react";
+import { useLoaderData } from "@remix-run/react";
 
 import { H1 } from "~/components/header";
 import {
@@ -11,21 +10,14 @@ import {
   ProblemScoreTable,
   TimeScoreTable,
 } from "~/components/score-tables";
-import {
-  MostRecentSubmissionRow,
-  SubmissionRow,
-} from "~/components/submission-list";
-import { Table } from "~/components/table";
+import { MostRecentSubmissionRow } from "~/components/submission-list";
 import { useRefreshInterval } from "~/hooks/refreshinterval";
 import {
-  IRanking,
-  Ranking,
-  ScoreTable,
   getMostRecentlySystemUpdatedSubmission,
   getSubmissions,
 } from "~/models/submission.server";
 import { requireUser } from "~/session.server";
-import { mapSubmissionSubmittedAt, range } from "~/utils";
+import { mapSubmissionSubmittedAt } from "~/utils";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const user = await requireUser(request);
@@ -65,14 +57,14 @@ export default function Index() {
 
   return (
     <main className="flex flex-col p-12 gap-8">
-      {mostRecentSubmission && (
+      {mostRecentSubmission ? (
         <div>
           <p className="text-m font-bold py-1">Siste opplasting</p>
           <MostRecentSubmissionRow
             submission={mapSubmissionSubmittedAt([mostRecentSubmission])[0]}
           />
         </div>
-      )}
+      ) : null}
       <CombinedScoreTable ranking={ranking} />
       <CorrectnessScoreTable contest={contest} ranking={ranking} />
       <TimeScoreTable contest={contest} ranking={ranking} />

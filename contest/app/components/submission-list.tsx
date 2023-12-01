@@ -87,7 +87,7 @@ export function SubmissionList({
     <div className="flex flex-col gap-5 max-w-4xl">
       <H1>Opplastinger</H1>
       {submissions.map((submission) => (
-        <Link to={`/home/submission/${submission.id}`}>
+        <Link key={submission.id} to={`/home/submission/${submission.id}`}>
           <SubmissionRow
             key={submission.id}
             submission={submission}

@@ -1,7 +1,9 @@
 import { Contest } from "@prisma/client";
 import { Link } from "@remix-run/react";
+
 import { IRanking, ScoreTable } from "~/models/submission.server";
 import { range } from "~/utils";
+
 import { H1 } from "./header";
 import { Table } from "./table";
 
@@ -31,7 +33,9 @@ export function TimeScoreTable({
   const columns: React.ReactNode[] = [
     "Lag",
     ...range(1, contest.numProblems).map((problem) => (
-      <Link to={`problem/${problem}`}>Oppgave {problem}</Link>
+      <Link key={problem} to={`problem/${problem}`}>
+        Oppgave {problem}
+      </Link>
     )),
     "Sum",
   ];
@@ -62,7 +66,9 @@ export function CorrectnessScoreTable({
   const columns: React.ReactNode[] = [
     "Lag",
     ...range(1, contest.numProblems).map((problem) => (
-      <Link to={`problem/${problem}`}>Oppgave {problem}</Link>
+      <Link key={problem} to={`problem/${problem}`}>
+        Oppgave {problem}
+      </Link>
     )),
     "Sum",
   ];
@@ -93,7 +99,9 @@ export function EnergyScoreTable({
   const columns: React.ReactNode[] = [
     "Lag",
     ...range(1, contest.numProblems).map((problem) => (
-      <Link to={`problem/${problem}`}>Oppgave {problem}</Link>
+      <Link key={problem} to={`problem/${problem}`}>
+        Oppgave {problem}
+      </Link>
     )),
     "Sum",
   ];
@@ -124,14 +132,16 @@ export function ProblemScoreTable({
   const columns: React.ReactNode[] = [
     "Lag",
     ...range(1, contest.numProblems).map((problem) => (
-      <Link to={`problem/${problem}`}>Oppgave {problem}</Link>
+      <Link key={problem} to={`problem/${problem}`}>
+        Oppgave {problem}
+      </Link>
     )),
   ];
 
   const rows: React.ReactNode[][] = range(1, contest.numTeams).map((team) => [
     `Lag ${team}`,
     ...range(1, contest.numProblems).map((problem) => (
-      <div className=" flex flex-row gap-4">
+      <div key={problem} className=" flex flex-row gap-4">
         <p>{scores[problem][team].scoreMs ?? "?"} ms</p>
         <p>{scores[problem][team].scoreJ ?? "?"} J</p>
       </div>

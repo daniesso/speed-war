@@ -98,11 +98,10 @@ module.exports = {
     // Jest/Vitest
     {
       files: ["**/*.test.{js,jsx,ts,tsx}"],
-      plugins: ["jest", "jest-dom", "testing-library"],
+      plugins: ["jest", "jest-dom"],
       extends: [
         "plugin:jest/recommended",
         "plugin:jest-dom/recommended",
-        "plugin:testing-library/react",
         "prettier",
       ],
       env: {
@@ -116,13 +115,6 @@ module.exports = {
           version: 28,
         },
       },
-    },
-
-    // Cypress
-    {
-      files: ["cypress/**/*.ts"],
-      plugins: ["cypress"],
-      extends: ["plugin:cypress/recommended", "prettier"],
     },
 
     // Node

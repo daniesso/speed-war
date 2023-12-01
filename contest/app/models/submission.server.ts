@@ -2,10 +2,10 @@ import { Contest } from "@prisma/client";
 import invariant from "tiny-invariant";
 
 import { prisma } from "~/db.server";
+import { TestResult } from "~/service/types";
 import { range } from "~/utils";
 
 import { getContest } from "./contest.server";
-import { TestResult } from "~/service/types";
 
 type Team = number;
 type Problem = number;

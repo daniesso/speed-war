@@ -15,7 +15,7 @@ import {
   deleteContest as deleteContest,
   getContest,
 } from "~/models/contest.server";
-import { getUser, requireUser } from "~/session.server";
+import { requireUser } from "~/session.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const user = await requireUser(request);
