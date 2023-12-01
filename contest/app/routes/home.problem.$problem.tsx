@@ -41,7 +41,12 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     "Expected to have submissions since contest exists",
   );
 
-  return json({ user, contest, teamSubmissions });
+  return json({
+    user,
+    contest,
+    teamSubmissions,
+    submissionLanguages: SUBMISSION_LANGUAGES,
+  });
 };
 
 const ONE_MB = Math.pow(2, 20);
@@ -125,8 +130,11 @@ function validateProblemParam(params: Params<string>) {
 }
 
 export default function SubmitPage() {
-  const { user, teamSubmissions: _teamSubmissions } =
-    useLoaderData<typeof loader>();
+  const {
+    user,
+    teamSubmissions: _teamSubmissions,
+    submissionLanguages,
+  } = useLoaderData<typeof loader>();
   const teamSubmissions = mapSubmissionSubmittedAt(_teamSubmissions);
   const actionData = useActionData<typeof action>();
 
@@ -147,7 +155,7 @@ export default function SubmitPage() {
               name="submission-lang"
               className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-72 p-2.5"
             >
-              {SUBMISSION_LANGUAGES.map((lang) => (
+              {submissionLanguages.map((lang) => (
                 <option key={lang} value={lang}>
                   {lang}
                 </option>

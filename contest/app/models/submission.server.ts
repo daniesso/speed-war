@@ -533,6 +533,7 @@ export async function updateSubmission({
       scoreJ: scoreJ,
       scoreMs: scoreMs,
       submissionResult: Buffer.from(JSON.stringify(testResult)),
+      testsCompletedTime: new Date(Date.now()),
     },
     select: SelectSubmissionDefaultFields,
     where: { id: submissionId },
@@ -563,6 +564,23 @@ export async function getRunningSubmission(): Promise<Submission | null> {
   });
 
   return submission ? mapDefaultSubmission(submission) : null;
+}
+
+export async function getMostRecentlySystemUpdatedSubmission(): Promise<
+  (Submission & { testsCompletedTime: Date }) | null
+> {
+  const submission = await prisma.submission.findFirst({
+    select: { ...SelectSubmissionDefaultFields, testsCompletedTime: true },
+    where: { testsCompletedTime: { not: null } },
+    orderBy: { testsCompletedTime: "desc" },
+  });
+
+  return submission
+    ? {
+        ...mapDefaultSubmission(submission),
+        testsCompletedTime: submission.testsCompletedTime!,
+      }
+    : null;
 }
 
 export async function getSubmissionResult(

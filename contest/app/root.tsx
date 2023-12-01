@@ -24,7 +24,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return json({ user: await getUser(request) });
 };
 
-TestRunner.start();
+if (TestRunner) {
+  TestRunner.start();
+}
 
 export default function App() {
   return (

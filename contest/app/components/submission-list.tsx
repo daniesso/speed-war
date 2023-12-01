@@ -5,12 +5,12 @@ import { Submission, SubmissionState } from "~/models/submission.server";
 import { Button } from "./button";
 import { H1 } from "./header";
 
-export function SubmissionRow({
-  submission,
-  onDeleteRedirectTo = undefined,
+export function SubmissionBox({
+  submissionState,
+  children,
 }: {
-  submission: Submission;
-  onDeleteRedirectTo?: string;
+  submissionState: SubmissionState;
+  children: React.ReactNode[];
 }): JSX.Element {
   const bgColor: Record<SubmissionState, string> = {
     queued: "bg-gray-200",
@@ -21,8 +21,22 @@ export function SubmissionRow({
 
   return (
     <div
-      className={`rounded flex flex-row py-1 px-2 ${bgColor[submission.state]}`}
+      className={`rounded flex flex-row py-1 px-2 ${bgColor[submissionState]}`}
     >
+      {children}
+    </div>
+  );
+}
+
+export function SubmissionRow({
+  submission,
+  onDeleteRedirectTo = undefined,
+}: {
+  submission: Submission;
+  onDeleteRedirectTo?: string;
+}): JSX.Element {
+  return (
+    <SubmissionBox submissionState={submission.state}>
       <p className="w-2/12">Oppg {submission.problemId}</p>
       <p className="w-1/12">{submission.lang}</p>
       <p className="w-3/12">{submission.submittedAt.toLocaleString("no")}</p>
@@ -41,7 +55,24 @@ export function SubmissionRow({
         ) : null}
         <Button variant="inline">Slett</Button>
       </Form>
-    </div>
+    </SubmissionBox>
+  );
+}
+
+export function MostRecentSubmissionRow({
+  submission,
+}: {
+  submission: Submission;
+}): JSX.Element {
+  return (
+    <SubmissionBox submissionState={submission.state}>
+      <p className="w-3/12">Lag {submission.teamId}</p>
+      <p className="w-2/12">Oppg {submission.problemId}</p>
+      <p className="w-1/12">{submission.lang}</p>
+      <p className="w-2/12">{submission.state}</p>
+      <p className="w-2/12">{submission.scoreMs ?? "-"} ms</p>
+      <p className="w-1/12">{submission.scoreJ ?? "-"} J</p>
+    </SubmissionBox>
   );
 }
 

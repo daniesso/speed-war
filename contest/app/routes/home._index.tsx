@@ -11,15 +11,21 @@ import {
   ProblemScoreTable,
   TimeScoreTable,
 } from "~/components/score-tables";
+import {
+  MostRecentSubmissionRow,
+  SubmissionRow,
+} from "~/components/submission-list";
 import { Table } from "~/components/table";
+import { useRefreshInterval } from "~/hooks/refreshinterval";
 import {
   IRanking,
   Ranking,
   ScoreTable,
+  getMostRecentlySystemUpdatedSubmission,
   getSubmissions,
 } from "~/models/submission.server";
 import { requireUser } from "~/session.server";
-import { range } from "~/utils";
+import { mapSubmissionSubmittedAt, range } from "~/utils";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const user = await requireUser(request);
@@ -30,11 +36,28 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const ranking = submissions?.calculateRanking();
 
-  return json({ user, scores, contest, ranking });
+  const mostRecent = await getMostRecentlySystemUpdatedSubmission();
+
+  const maybeMostRecent =
+    mostRecent &&
+    Date.now() - mostRecent?.testsCompletedTime?.getTime() < 600_000
+      ? mostRecent
+      : null;
+
+  return json({
+    user,
+    scores,
+    contest,
+    ranking,
+    mostRecentSubmission: maybeMostRecent,
+  });
 };
 
 export default function Index() {
-  const { scores, contest, ranking } = useLoaderData<typeof loader>();
+  const { scores, contest, ranking, mostRecentSubmission } =
+    useLoaderData<typeof loader>();
+
+  useRefreshInterval(15);
 
   if (!contest || !scores || !ranking) {
     return <H1>Ingen aktiv konkurranse</H1>;
@@ -42,6 +65,14 @@ export default function Index() {
 
   return (
     <main className="flex flex-col p-12 gap-8">
+      {mostRecentSubmission && (
+        <div>
+          <p className="text-m font-bold py-1">Siste opplasting</p>
+          <MostRecentSubmissionRow
+            submission={mapSubmissionSubmittedAt([mostRecentSubmission])[0]}
+          />
+        </div>
+      )}
       <CombinedScoreTable ranking={ranking} />
       <CorrectnessScoreTable contest={contest} ranking={ranking} />
       <TimeScoreTable contest={contest} ranking={ranking} />

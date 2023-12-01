@@ -38,8 +38,9 @@ model Submission {
 
   problemId Int
 
-  submissionData Bytes
-  submissionResult Bytes?
+  submissionData    Bytes
+  submissionResult  Bytes?
+  testsCompletedTime  DateTime?
 
   lang String
 }
