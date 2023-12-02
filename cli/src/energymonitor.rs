@@ -6,7 +6,6 @@ use std::{
 
 use serde::Deserialize;
 use websocket::{ClientBuilder, OwnedMessage};
-
 pub struct EnergyMonitor {
     pub ws_url: String,
 }
@@ -193,6 +192,7 @@ impl EnergyMonitorResult {
                 let w = self
                     .measurements
                     .iter()
+                    .rev()
                     .filter(|m| step_start >= m.timestamp)
                     .next()
                     .expect("Expected to find measurements for all steps in interval");
@@ -207,4 +207,117 @@ impl EnergyMonitorResult {
 pub struct EnergyMeasurementDTO {
     power: f64,
     timestamp: String,
+}
+
+#[cfg(test)]
+mod test {
+
+    use chrono::{self, TimeZone, Utc};
+
+    use super::*;
+
+    #[test]
+    fn can_calculate_consumed_energy() {
+        let start = Utc.with_ymd_and_hms(2023, 1, 1, 0, 0, 0).unwrap();
+        let result = EnergyMonitorResult {
+            measurements: vec![
+                EnergyMeasurement {
+                    power: 1.0,
+                    timestamp: start,
+                },
+                EnergyMeasurement {
+                    power: 5.0,
+                    timestamp: start + chrono::Duration::milliseconds(100),
+                },
+                EnergyMeasurement {
+                    power: 10.0,
+                    timestamp: start + chrono::Duration::milliseconds(200),
+                },
+            ],
+        }
+        .calculate_consumed_energy(start, start + chrono::Duration::milliseconds(250));
+
+        assert_eq!(result, 1.1);
+    }
+
+    #[test]
+    fn can_calculate_consumed_energy_and_handle_first_measurement_before_start() {
+        let start = Utc.with_ymd_and_hms(2023, 1, 1, 0, 0, 0).unwrap();
+        let result = EnergyMonitorResult {
+            measurements: vec![
+                EnergyMeasurement {
+                    power: 1.0,
+                    timestamp: start - chrono::Duration::milliseconds(50),
+                },
+                EnergyMeasurement {
+                    power: 5.0,
+                    timestamp: start + chrono::Duration::milliseconds(50),
+                },
+                EnergyMeasurement {
+                    power: 10.0,
+                    timestamp: start + chrono::Duration::milliseconds(100),
+                },
+            ],
+        }
+        .calculate_consumed_energy(start, start + chrono::Duration::milliseconds(200));
+
+        assert_eq!(result, 1.3);
+    }
+
+    #[test]
+    fn can_calculate_consumed_energy_and_handle_last_measurement_after_end() {
+        let start = Utc.with_ymd_and_hms(2023, 1, 1, 0, 0, 0).unwrap();
+        let result = EnergyMonitorResult {
+            measurements: vec![
+                EnergyMeasurement {
+                    power: 1.0,
+                    timestamp: start,
+                },
+                EnergyMeasurement {
+                    power: 5.0,
+                    timestamp: start + chrono::Duration::milliseconds(50),
+                },
+                EnergyMeasurement {
+                    power: 10.0,
+                    timestamp: start + chrono::Duration::milliseconds(100),
+                },
+            ],
+        }
+        .calculate_consumed_energy(start, start + chrono::Duration::milliseconds(75));
+
+        assert_eq!(result, 0.175);
+    }
+
+    #[test]
+    fn can_calculate_consumed_energy_and_handle_measurement_frequency_not_factor_of_sampling_frequency(
+    ) {
+        let start = Utc.with_ymd_and_hms(2023, 1, 1, 0, 0, 0).unwrap();
+        let result = EnergyMonitorResult {
+            measurements: vec![
+                EnergyMeasurement {
+                    power: 1.0,
+                    timestamp: start - chrono::Duration::milliseconds(10),
+                },
+                EnergyMeasurement {
+                    power: 5.0,
+                    timestamp: start + chrono::Duration::milliseconds(10),
+                },
+                EnergyMeasurement {
+                    power: 15.0,
+                    timestamp: start + chrono::Duration::milliseconds(30),
+                },
+                EnergyMeasurement {
+                    power: 10.0,
+                    timestamp: start + chrono::Duration::milliseconds(40),
+                },
+                EnergyMeasurement {
+                    power: 8.0,
+                    timestamp: start + chrono::Duration::milliseconds(55),
+                },
+            ],
+        }
+        .calculate_consumed_energy(start, start + chrono::Duration::milliseconds(77));
+
+        assert_eq!(result, 0.32);
+    }
 }
