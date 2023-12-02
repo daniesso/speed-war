@@ -27,6 +27,9 @@ pub struct RunResult {
 pub enum Lang {
     Rust,
     Python,
+    CPP,
+    Node,
+    Clojure,
 }
 
 impl Lang {
@@ -35,6 +38,9 @@ impl Lang {
         match self {
             Lang::Rust => base.join("rust"),
             Lang::Python => base.join("python"),
+            Lang::CPP => base.join("cpp"),
+            Lang::Node => base.join("node"),
+            Lang::Clojure => base.join("clojure"),
         }
     }
 }
@@ -292,7 +298,7 @@ fn prepare_context(
         source_code_path, source_dir_target
     );
     copy_dir_all(source_code_path, &source_dir_target)
-        .map_err(|x| format!("Could copy source code content ({})", x))?;
+        .map_err(|x| format!("Couldn't copy source code content ({})", x))?;
     debug!(
         "Copying base image from {:?} into {:?}",
         lang.base_image(),

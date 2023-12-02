@@ -177,7 +177,6 @@ fn run_cmd(command: String, timeout: Duration) -> Result<Output, String> {
             .try_wait()
             .map_err(|err| format!("Failed to check if command had finished: {}", err))?
         {
-            debug!("Try wait finished");
             return Ok(child.wait_with_output().map_err(|io_error| {
                 format!(
                     "IO error occuredd while reading output from command: {}",

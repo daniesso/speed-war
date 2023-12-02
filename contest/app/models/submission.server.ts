@@ -407,7 +407,13 @@ const isSubmissionState = (value: unknown): value is SubmissionState => {
   );
 };
 
-export const SUBMISSION_LANGUAGES = ["rust"];
+export const SUBMISSION_LANGUAGES = [
+  "rust",
+  "python",
+  "node",
+  "clojure",
+  "cpp",
+];
 
 export const isSubmissionLang = (value: unknown): value is SubmissionLang =>
   typeof value === "string" && SUBMISSION_LANGUAGES.includes(value);

@@ -5,7 +5,6 @@ import type {
 } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { Form, useActionData, useLoaderData } from "@remix-run/react";
-import { exec } from "child_process";
 import invariant from "tiny-invariant";
 
 import { Button } from "~/components/button";
