@@ -6,8 +6,8 @@ import invariant from "tiny-invariant";
 import { H1 } from "~/components/header";
 import { SubmissionRow } from "~/components/submission-list";
 import { getSubmissionResult } from "~/models/submission.server";
+import { requireUser } from "~/service/session.server";
 import { TestResult } from "~/service/types";
-import { requireUser } from "~/session.server";
 import { mapSubmissionSubmittedAt } from "~/utils";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {

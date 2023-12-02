@@ -5,7 +5,7 @@ import { Form, Link, Outlet, useLoaderData } from "@remix-run/react";
 import { Button } from "~/components/button";
 import { H1 } from "~/components/header";
 import { getContest } from "~/models/contest.server";
-import { requireUser } from "~/session.server";
+import { requireUser } from "~/service/session.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const user = await requireUser(request);

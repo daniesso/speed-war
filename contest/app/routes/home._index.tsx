@@ -16,7 +16,7 @@ import {
   getMostRecentlySystemUpdatedSubmission,
   getSubmissions,
 } from "~/models/submission.server";
-import { requireUser } from "~/session.server";
+import { requireUser } from "~/service/session.server";
 import { mapSubmissionSubmittedAt } from "~/utils";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {

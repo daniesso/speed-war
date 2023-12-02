@@ -9,7 +9,7 @@ import { useEffect, useRef } from "react";
 
 import { Button } from "~/components/button";
 import { verifyLogin } from "~/models/user.server";
-import { createUserSession, getUserId } from "~/session.server";
+import { createUserSession, getUserId } from "~/service/session.server";
 import { safeRedirect } from "~/utils";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {

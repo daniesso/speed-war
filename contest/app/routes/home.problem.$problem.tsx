@@ -19,7 +19,7 @@ import {
   isSubmissionLang,
 } from "~/models/submission.server";
 import { User } from "~/models/user.server";
-import { requireUser } from "~/session.server";
+import { requireUser } from "~/service/session.server";
 import { mapSubmissionSubmittedAt } from "~/utils";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {

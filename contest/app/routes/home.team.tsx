@@ -14,7 +14,7 @@ import { getContest } from "~/models/contest.server";
 import { getTeamSubmissionsSortedByRecency } from "~/models/submission.server";
 import { updateTeamName } from "~/models/team.server";
 import { ContestTeam } from "~/models/user.server";
-import { requireUser } from "~/session.server";
+import { requireUser } from "~/service/session.server";
 import { mapSubmissionSubmittedAt } from "~/utils";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
