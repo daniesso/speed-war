@@ -218,7 +218,7 @@ fn parse_sha256(value: String) -> Result<String, String> {
     Ok(value[skip..(skip + 12)].to_string())
 }
 
-const IMAGE_BUILD_TIMEOUT: Duration = Duration::from_secs(60);
+const IMAGE_BUILD_TIMEOUT: Duration = Duration::from_secs(300);
 const CONTAINER_STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
 const CONTAINER_EXEC_TIMEOUT: Duration = Duration::from_secs(60);
 

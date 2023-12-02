@@ -12,7 +12,7 @@ RUN apt-get update && apt-get -y --no-install-recommends install \
     gdb \
     wget
 
-# Let us add some heavy dependency
+# Install boost
 RUN cd ${HOME} && \
     wget --no-check-certificate --quiet \
     https://boostorg.jfrog.io/artifactory/main/release/1.77.0/source/boost_1_77_0.tar.gz && \
