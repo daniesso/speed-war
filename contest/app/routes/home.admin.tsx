@@ -5,6 +5,7 @@ import type {
 } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { Form, useActionData, useLoaderData } from "@remix-run/react";
+import { exec } from "child_process";
 import invariant from "tiny-invariant";
 
 import { Button } from "~/components/button";
@@ -16,6 +17,8 @@ import {
   getContest,
 } from "~/models/contest.server";
 import { requireUser } from "~/service/session.server";
+import fs from "fs/promises";
+import path from "node:path";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const user = await requireUser(request);
@@ -38,15 +41,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   if (contestAction == "create-contest") {
     const numTeams = Number(formData.get("num-players"));
-    const numProblems = Number(formData.get("num-problems"));
 
     if (isNaN(numTeams) || numTeams < 1 || numTeams > 20) {
       return json({ error: "Ugyldig antall spillere" });
     }
 
-    if (isNaN(numProblems) || numProblems < 1 || numProblems > 20) {
-      return json({ error: "Ugyldig antall oppgaver" });
-    }
+    const repoBasePath = process.env.REPO_BASE_PATH;
+    invariant(!!repoBasePath, "Repo base path must be defined");
+
+    const numProblems = await fs
+      .readdir(path.join(repoBasePath, "problems"))
+      .then((files) => {
+        return files.filter((fileName) => fileName.match(/^\d+$/) != null)
+          .length;
+      });
 
     await createContest(numTeams, numProblems);
   } else if (contestAction == "delete-contest") {
@@ -121,13 +129,6 @@ function CreateContest(): React.ReactNode {
           <span>Antall spillere: </span>
           <input
             name="num-players"
-            className="flex-1 rounded-md border-2 border-blue-500 px-3 text-lg leading-loose"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span>Antall oppgaver: </span>
-          <input
-            name="num-problems"
             className="flex-1 rounded-md border-2 border-blue-500 px-3 text-lg leading-loose"
           />
         </label>
