@@ -22,6 +22,7 @@ export interface ContestTeam extends BaseUser {
   userId: string;
   teamNumber: number;
   teamName: string;
+  accessKey: string;
 }
 
 const ADMIN_USER_ID = "admin";
@@ -44,6 +45,7 @@ export async function verifyLogin(accessKey: string): Promise<User | null> {
       userId: contestTeam.id.toString(),
       teamNumber: contestTeam.id,
       teamName: contestTeam.teamName,
+      accessKey: contestTeam.accessKey,
     };
   } else {
     return null;

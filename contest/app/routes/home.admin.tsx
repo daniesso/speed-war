@@ -83,8 +83,8 @@ function ActiveContest({
           </thead>
           <tbody>
             {contest!.teams.map((team) => (
-              <tr key={team.id}>
-                <td>Lag {team.id}</td>
+              <tr key={team.teamNumber}>
+                <td>Lag {team.teamNumber}</td>
                 <td>{team.teamName}</td>
                 <td>{team.accessKey}</td>
               </tr>

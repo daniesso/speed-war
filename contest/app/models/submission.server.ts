@@ -463,6 +463,7 @@ export function mapContestTeam(team: DBSubmission["team"]): ContestTeam {
     teamNumber: team.id,
     teamName: team.teamName,
     isAdmin: false,
+    accessKey: team.accessKey,
   };
 }
 
