@@ -2,6 +2,8 @@ import invariant from "tiny-invariant";
 
 import { prisma } from "~/db.server";
 
+import { getContestTeam } from "./team.server";
+
 invariant(process.env.BOOTSTRAP_ACCESS_KEY, "BOOTSTRAP_ACCESS_KEY must be set");
 
 interface BaseUser {
@@ -15,7 +17,7 @@ interface AdminUser extends BaseUser {
   userId: "admin";
 }
 
-interface ContestTeam extends BaseUser {
+export interface ContestTeam extends BaseUser {
   isAdmin: false;
   userId: string;
   teamNumber: number;
@@ -55,17 +57,6 @@ export async function getUserById(userId: string): Promise<User | null> {
       userId,
     };
   } else {
-    const contestTeam = await prisma.team.findUnique({
-      where: { id: Number(userId) },
-    });
-
-    return contestTeam
-      ? {
-          isAdmin: false,
-          userId: contestTeam.id.toString(),
-          teamNumber: contestTeam.id,
-          teamName: contestTeam.teamName,
-        }
-      : null;
+    return await getContestTeam(Number(userId));
   }
 }

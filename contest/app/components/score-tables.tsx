@@ -1,6 +1,6 @@
-import { Contest } from "@prisma/client";
 import { Link } from "@remix-run/react";
 
+import { Contest } from "~/models/contest.server";
 import { IRanking, ScoreTable } from "~/models/submission.server";
 import { range } from "~/utils";
 
@@ -11,7 +11,7 @@ export function CombinedScoreTable({ ranking }: { ranking: IRanking }) {
   const columns: React.ReactNode[] = ["Lag", "Poeng"];
 
   const rows: React.ReactNode[][] = ranking.combined.map((team) => [
-    `Lag ${team.team}`,
+    team.team,
     team.points,
   ]);
 
@@ -40,12 +40,12 @@ export function TimeScoreTable({
     "Sum",
   ];
 
-  const rows: React.ReactNode[][] = range(1, contest.numTeams).map((team) => [
-    `Lag ${team}`,
+  const rows: React.ReactNode[][] = contest.teams.map((team) => [
+    team.teamName,
     ...range(1, contest.numProblems).map(
-      (problem) => ranking.speed[problem][team].points,
+      (problem) => ranking.speed[problem][team.teamName].points,
     ),
-    ranking.speed["sum"][team].points,
+    ranking.speed["sum"][team.teamName].points,
   ]);
 
   return (
@@ -73,12 +73,12 @@ export function CorrectnessScoreTable({
     "Sum",
   ];
 
-  const rows: React.ReactNode[][] = range(1, contest.numTeams).map((team) => [
-    `Lag ${team}`,
+  const rows: React.ReactNode[][] = contest.teams.map((team) => [
+    team.teamName,
     ...range(1, contest.numProblems).map(
-      (problem) => ranking.correctness[problem][team].points,
+      (problem) => ranking.correctness[problem][team.teamName].points,
     ),
-    ranking.correctness["sum"][team].points,
+    ranking.correctness["sum"][team.teamName].points,
   ]);
 
   return (
@@ -106,12 +106,12 @@ export function EnergyScoreTable({
     "Sum",
   ];
 
-  const rows: React.ReactNode[][] = range(1, contest.numTeams).map((team) => [
-    `Lag ${team}`,
+  const rows: React.ReactNode[][] = contest.teams.map((team) => [
+    team.teamName,
     ...range(1, contest.numProblems).map(
-      (problem) => ranking.energy[problem][team].points,
+      (problem) => ranking.energy[problem][team.teamName].points,
     ),
-    ranking.energy["sum"][team].points,
+    ranking.energy["sum"][team.teamName].points,
   ]);
 
   return (
@@ -138,12 +138,12 @@ export function ProblemScoreTable({
     )),
   ];
 
-  const rows: React.ReactNode[][] = range(1, contest.numTeams).map((team) => [
-    `Lag ${team}`,
+  const rows: React.ReactNode[][] = contest.teams.map((team) => [
+    team.teamName,
     ...range(1, contest.numProblems).map((problem) => (
       <div key={problem} className=" flex flex-row gap-4">
-        <p>{scores[problem][team].scoreMs ?? "?"} ms</p>
-        <p>{scores[problem][team].scoreJ ?? "?"} J</p>
+        <p>{scores[problem][team.teamName].scoreMs ?? "?"} ms</p>
+        <p>{scores[problem][team.teamName].scoreJ ?? "?"} J</p>
       </div>
     )),
   ]);

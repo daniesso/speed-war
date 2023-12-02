@@ -1,21 +1,40 @@
 import { prisma } from "~/db.server";
 import { range } from "~/utils";
 
+import { mapContestTeam } from "./submission.server";
+import { ContestTeam } from "./user.server";
+
 export type ContestWithTeams = Awaited<ReturnType<typeof getContest>>;
 
 const CONTEST_SINGLETON_ID = 1;
 
-export async function getContest() {
-  return prisma.contest.findFirst({
-    select: {
-      id: true,
-      numTeams: true,
-      numProblems: true,
-      nextTeamSubmission: true,
-      teams: true,
-    },
-    where: { id: CONTEST_SINGLETON_ID },
-  });
+export interface Contest {
+  numTeams: number;
+  numProblems: number;
+  nextTeamSubmission: number;
+  teams: ContestTeam[];
+}
+
+export async function getContest(): Promise<Contest | null> {
+  return prisma.contest
+    .findFirst({
+      select: {
+        id: true,
+        numTeams: true,
+        numProblems: true,
+        nextTeamSubmission: true,
+        teams: true,
+      },
+      where: { id: CONTEST_SINGLETON_ID },
+    })
+    .then((contest) =>
+      contest
+        ? {
+            ...contest,
+            teams: contest.teams.map((team) => mapContestTeam(team)),
+          }
+        : null,
+    );
 }
 
 export async function deleteContest() {

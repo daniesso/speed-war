@@ -68,7 +68,7 @@ export function MostRecentSubmissionRow({
 }): JSX.Element {
   return (
     <SubmissionBox submissionState={submission.state}>
-      <p className="w-3/12">Lag {submission.teamId}</p>
+      <p className="w-3/12">{submission.team.teamName}</p>
       <p className="w-2/12">Oppg {submission.problemId}</p>
       <p className="w-1/12">{submission.lang}</p>
       <p className="w-2/12">{submission.state}</p>

@@ -20,7 +20,7 @@ model Team {
   id          Int     @id
   contest     Contest @relation(fields: [contestId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   contestId   Int
-  teamName    String
+  teamName    String  @unique
   accessKey   String  @unique @default(uuid())
 
   submissions Submission[]

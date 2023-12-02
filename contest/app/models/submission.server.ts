@@ -1,24 +1,25 @@
-import { Contest } from "@prisma/client";
 import invariant from "tiny-invariant";
 
 import { prisma } from "~/db.server";
 import { TestResult } from "~/service/types";
 import { range } from "~/utils";
 
-import { getContest } from "./contest.server";
+import { Contest, getContest } from "./contest.server";
+import { getContestTeam } from "./team.server";
+import { ContestTeam } from "./user.server";
 
-type Team = number;
+type Team = string;
 type Problem = number;
 
 export interface IRanking {
-  combined: { team: number; points: number; rank: number }[];
+  combined: { team: Team; points: number; rank: number }[];
   speed: Record<Problem | "sum", Record<Team, { points: number }>>;
   energy: Record<Problem | "sum", Record<Team, { points: number }>>;
   correctness: Record<Problem | "sum", Record<Team, { points: number }>>;
 }
 
 export class Ranking implements IRanking {
-  combined: { team: number; points: number; rank: number }[];
+  combined: { team: Team; points: number; rank: number }[];
   speed: Record<Problem | "sum", Record<Team, { points: number }>>;
   energy: Record<Problem | "sum", Record<Team, { points: number }>>;
   correctness: Record<Problem | "sum", Record<Team, { points: number }>>;
@@ -46,13 +47,13 @@ export class Ranking implements IRanking {
       range(1, contest.numProblems).map((problem) => {
         const pointsByTeam: Record<Team, { points: number }> =
           Object.fromEntries(
-            range(1, contest.numTeams).map(
+            contest.teams.map(
               (team) =>
                 [
-                  team,
+                  team.teamName,
                   {
                     points:
-                      scoreTable[problem][team].scoreMs != null
+                      scoreTable[problem][team.teamName].scoreMs != null
                         ? contest.numTeams - 1
                         : 0,
                   },
@@ -68,11 +69,11 @@ export class Ranking implements IRanking {
     );
 
     const sum: Record<Team, { points: number }> = Object.fromEntries(
-      range(1, contest.numTeams).map((team) => [
-        team,
+      contest.teams.map((team) => [
+        team.teamName,
         {
           points: range(1, contest.numProblems)
-            .map((problem) => problemsPoints[problem][team]!.points)
+            .map((problem) => problemsPoints[problem][team.teamName].points)
             .reduce((a, b) => a + b, 0),
         },
       ]),
@@ -93,13 +94,13 @@ export class Ranking implements IRanking {
       Record<Team, { points: number }>
     > = Object.fromEntries(
       range(1, contest.numProblems).map((problem) => {
-        const teamsEnergyScore = range(1, contest.numTeams).map(
+        const teamsEnergyScore = contest.teams.map(
           (team) =>
             ({
-              team,
+              team: team.teamName,
               points:
-                scoreTable[problem][team]?.scoreJ != null
-                  ? scoreTable[problem][team].scoreJ!
+                scoreTable[problem][team.teamName]?.scoreJ != null
+                  ? scoreTable[problem][team.teamName].scoreJ!
                   : Number.MAX_VALUE,
             }) satisfies { team: Team; points: number },
         );
@@ -124,11 +125,11 @@ export class Ranking implements IRanking {
     );
 
     const sum: Record<Team, { points: number }> = Object.fromEntries(
-      range(1, contest.numTeams).map((team) => [
-        team,
+      contest.teams.map((team) => [
+        team.teamName,
         {
           points: range(1, contest.numProblems)
-            .map((problem) => problemsPoints[problem][team]!.points)
+            .map((problem) => problemsPoints[problem][team.teamName].points)
             .reduce((a, b) => a + b, 0),
         },
       ]),
@@ -149,13 +150,13 @@ export class Ranking implements IRanking {
       Record<Team, { points: number }>
     > = Object.fromEntries(
       range(1, contest.numProblems).map((problem) => {
-        const teamsTimeScore = range(1, contest.numTeams).map(
+        const teamsTimeScore = contest.teams.map(
           (team) =>
             ({
-              team,
+              team: team.teamName,
               points:
-                scoreTable[problem][team]?.scoreMs != null
-                  ? scoreTable[problem][team].scoreMs!
+                scoreTable[problem][team.teamName]?.scoreMs != null
+                  ? scoreTable[problem][team.teamName].scoreMs!
                   : Number.MAX_VALUE,
             }) satisfies { team: Team; points: number },
         );
@@ -180,11 +181,11 @@ export class Ranking implements IRanking {
     );
 
     const sum: Record<Team, { points: number }> = Object.fromEntries(
-      range(1, contest.numTeams).map((team) => [
-        team,
+      contest.teams.map((team) => [
+        team.teamName,
         {
           points: range(1, contest.numProblems)
-            .map((problem) => problemsPoints[problem][team]!.points)
+            .map((problem) => problemsPoints[problem][team.teamName].points)
             .reduce((a, b) => a + b, 0),
         },
       ]),
@@ -202,16 +203,15 @@ export class Ranking implements IRanking {
     energy: Record<Problem | "sum", Record<Team, { points: number }>>,
     correctness: Record<Problem | "sum", Record<Team, { points: number }>>,
   ): { team: Team; points: number; rank: number }[] {
-    const combined: { team: Team; points: number }[] = range(
-      1,
-      contest.numTeams,
-    ).map((team) => ({
-      team,
-      points:
-        speed["sum"][team].points +
-        energy["sum"][team].points +
-        correctness["sum"][team].points,
-    }));
+    const combined: { team: Team; points: number }[] = contest.teams.map(
+      (team) => ({
+        team: team.teamName,
+        points:
+          speed["sum"][team.teamName].points +
+          energy["sum"][team.teamName].points +
+          correctness["sum"][team.teamName].points,
+      }),
+    );
 
     combined.sort((a, b) => b.points - a.points);
 
@@ -237,7 +237,7 @@ export class Submissions {
 
     submissions.forEach((submission) =>
       this._submissionsByProblemAndTeam[submission.problemId][
-        submission.teamId
+        submission.team.teamName
       ].push(submission),
     );
   }
@@ -250,16 +250,13 @@ export class Submissions {
     return new Ranking(this._contest, this.getScoreTable());
   }
 
-  teamsRange(): number[] {
-    return range(1, this._contest.numTeams);
-  }
-
-  problemsTeamsRange(): [number, number][] {
+  problemsTeamsRange(): [Problem, ContestTeam][] {
     const problems = this.problemsRange();
-    const teams = this.teamsRange();
 
     return problems.flatMap((problem) =>
-      teams.map((team) => [problem, team] as [number, number]),
+      this._contest.teams.map(
+        (team) => [problem, team] as [number, ContestTeam],
+      ),
     );
   }
 
@@ -269,7 +266,7 @@ export class Submissions {
 
   getSubmissions(
     problem: number | undefined,
-    team: number | undefined,
+    team: Team | undefined,
   ): Submission[] {
     if (problem) {
       if (team) {
@@ -290,13 +287,13 @@ export class Submissions {
     }
   }
 
-  getSuccessfulSubmissions(problem: number, team: number): Submission[] {
+  getSuccessfulSubmissions(problem: Problem, team: Team): Submission[] {
     return this.getSubmissions(problem, team).filter(
       (sub) => sub.state == "success",
     );
   }
 
-  getSubmissionBestTime(problem: number, team: number): Submission | null {
+  getSubmissionBestTime(problem: number, team: Team): Submission | null {
     return this.getSuccessfulSubmissions(problem, team)
       .filter((sub) => sub.scoreMs != null)
       .reduce(
@@ -305,7 +302,7 @@ export class Submissions {
       );
   }
 
-  getSubmissionBestEnergy(problem: number, team: number): Submission | null {
+  getSubmissionBestEnergy(problem: Problem, team: Team): Submission | null {
     return this.getSuccessfulSubmissions(problem, team)
       .filter((sub) => sub.scoreJ != null)
       .reduce(
@@ -325,9 +322,12 @@ export class Submissions {
 
     this.problemsTeamsRange().forEach(
       ([problem, team]) =>
-        (scoreTable[problem][team] = {
-          scoreJ: this.getSubmissionBestEnergy(problem, team)?.scoreJ ?? null,
-          scoreMs: this.getSubmissionBestTime(problem, team)?.scoreMs ?? null,
+        (scoreTable[problem][team.teamName] = {
+          scoreJ:
+            this.getSubmissionBestEnergy(problem, team.teamName)?.scoreJ ??
+            null,
+          scoreMs:
+            this.getSubmissionBestTime(problem, team.teamName)?.scoreMs ?? null,
         }),
     );
 
@@ -341,7 +341,8 @@ export class Submissions {
 
     this.problemsTeamsRange().forEach(([problem, team]) => {
       matrix[problem] = matrix[problem] ?? {};
-      matrix[problem][team] = matrix[problem][team] ?? initial();
+      matrix[problem][team.teamName] =
+        matrix[problem][team.teamName] ?? initial();
     });
 
     return matrix;
@@ -354,7 +355,7 @@ const SelectSubmissionDefaultFields = {
   submittedAt: true,
   scoreMs: true,
   scoreJ: true,
-  teamId: true,
+  team: true,
   problemId: true,
   lang: true,
   submissionData: false,
@@ -380,14 +381,18 @@ export async function getSubmissions(
 }
 
 export async function getTeamSubmissionsSortedByRecency(
-  team: number,
+  teamNumber: number,
   problem: number | undefined = undefined,
 ): Promise<Submission[] | null> {
-  const submissions = await getSubmissions(team);
+  const team = await getContestTeam(teamNumber);
+  if (!team) {
+    return null;
+  }
+  const submissions = await getSubmissions(teamNumber);
 
   return (
     submissions
-      ?.getSubmissions(problem, team)
+      ?.getSubmissions(problem, team.teamName)
       .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime()) ?? null
   );
 }
@@ -407,23 +412,33 @@ export const SUBMISSION_LANGUAGES = ["rust"];
 export const isSubmissionLang = (value: unknown): value is SubmissionLang =>
   typeof value === "string" && SUBMISSION_LANGUAGES.includes(value);
 
+export interface DBSubmission {
+  id: string;
+  state: string;
+  submittedAt: Date;
+  scoreMs: number | null;
+  scoreJ: number | null;
+  team: {
+    id: number;
+    teamName: string;
+    accessKey: string;
+  };
+  problemId: number;
+  lang: string;
+}
+
 export interface Submission {
   id: string;
   state: SubmissionState;
   submittedAt: Date;
   scoreMs: number | null;
   scoreJ: number | null;
-  teamId: number;
+  team: ContestTeam;
   problemId: number;
   lang: SubmissionLang;
 }
 
-function mapDefaultSubmission(
-  submission: Omit<Omit<Submission, "state">, "lang"> & {
-    state: string;
-    lang: string;
-  },
-): Submission {
+function mapDefaultSubmission(submission: DBSubmission): Submission {
   const submissionState = submission.state;
   const lang = submission.lang;
   invariant(
@@ -438,6 +453,16 @@ function mapDefaultSubmission(
     state: submissionState,
     lang: lang,
     scoreJ: submission.scoreJ ? Number(submission.scoreJ.toFixed(1)) : null,
+    team: mapContestTeam(submission.team),
+  };
+}
+
+export function mapContestTeam(team: DBSubmission["team"]): ContestTeam {
+  return {
+    userId: team.id.toString(),
+    teamNumber: team.id,
+    teamName: team.teamName,
+    isAdmin: false,
   };
 }
 
