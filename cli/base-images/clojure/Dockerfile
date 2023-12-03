@@ -10,4 +10,4 @@ COPY entry.sh .
 RUN chmod +x entry.sh
 
 COPY --from=builder /app/app-standalone.jar /app/app.jar
-CMD ["sleep", "infinity"]
+CMD ["/app/entry.sh"]

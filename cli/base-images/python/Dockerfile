@@ -7,4 +7,4 @@ RUN ./install-deps.sh
 
 COPY src .
 
-CMD ["sleep", "infinity"]
+CMD ["/app/entry.sh"]

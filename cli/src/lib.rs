@@ -2,13 +2,14 @@ pub mod docker;
 pub mod energymonitor;
 
 use clap::ValueEnum;
-use docker::{DockerContainer, DockerError, DockerImage};
-use energymonitor::measure_fn;
+use docker::{DockerError, DockerImage};
+use energymonitor::{measure_fn, MeasureFnError};
 use log::debug;
 use serde::Serialize;
 use std::cmp::max;
 use std::env;
 use std::io::Read;
+use std::path::Path;
 use std::rc::Rc;
 use std::{
     fs, io,
@@ -82,7 +83,6 @@ struct Test {
     test_number: u8,
     input: path::PathBuf,
     solution: path::PathBuf,
-    answer: path::PathBuf,
 }
 
 fn get_tests(tests_path: &path::Path) -> Result<Vec<Test>, String> {
@@ -126,7 +126,6 @@ fn get_tests(tests_path: &path::Path) -> Result<Vec<Test>, String> {
                 test_number: *test_number,
                 input: test_path.join("input.txt"),
                 solution: test_path.join("solution.txt"),
-                answer: test_path.join("answer.txt"),
             })
             .collect())
     }
@@ -142,17 +141,13 @@ fn run_tests(
 
     let mut test_results = Vec::new();
 
-    let container = Rc::new(
-        docker_image
-            .run()
-            .map_err(|err| format!("Starting container failed: {}", err.to_string()))?,
-    );
+    let rc_docker_image = Rc::new(docker_image);
 
     for test in tests {
         let test_run = if let Some(test_params) = repeat_tests_params {
-            repeat_tests(container.clone(), &test, test_params)
+            repeat_tests(rc_docker_image.clone(), &test, test_params)
         } else {
-            run_test(container.clone(), &test)
+            run_test(rc_docker_image.clone(), &test)
         };
 
         if let Ok(result) = test_run {
@@ -165,20 +160,12 @@ fn run_tests(
     Ok(test_results)
 }
 
-fn answer_is_equal_to_solution(test: &Test) -> Result<bool, String> {
-    debug!("Comparing files {:?} and {:?}", test.answer, test.solution);
-    let f1 = fs::File::open(&test.answer).map_err(|_| {
-        format!(
-            "Couldn't open file {:?} in order to check diff",
-            test.answer
-        )
-    })?;
-    let f2 = fs::File::open(&test.solution).map_err(|_| {
-        format!(
-            "Couldn't open file {:?} in order to check diff",
-            test.solution
-        )
-    })?;
+fn answer_is_equal_to_solution(answer: &Path, solution: &Path) -> Result<bool, String> {
+    debug!("Comparing files {:?} and {:?}", answer, solution);
+    let f1 = fs::File::open(answer)
+        .map_err(|_| format!("Couldn't open file {:?} in order to check diff", answer))?;
+    let f2 = fs::File::open(solution)
+        .map_err(|_| format!("Couldn't open file {:?} in order to check diff", solution))?;
 
     let mut reader1 = io::BufReader::new(f1);
     let mut reader2 = io::BufReader::new(f2);
@@ -225,10 +212,6 @@ fn answer_is_equal_to_solution(test: &Test) -> Result<bool, String> {
     }
 }
 
-fn compare_answer(test: &Test) -> Result<bool, String> {
-    answer_is_equal_to_solution(test)
-}
-
 #[derive(Serialize)]
 pub struct TestStats {
     time_elapsed_ms: u32,
@@ -262,7 +245,7 @@ pub struct RepeatTestsParams {
 }
 
 fn repeat_tests(
-    container: Rc<DockerContainer>,
+    image: Rc<DockerImage>,
     test: &Test,
     repeat_tests_params: RepeatTestsParams,
 ) -> Result<TestResult, String> {
@@ -275,7 +258,7 @@ fn repeat_tests(
     while test_iteration < repeat_tests_params.min_num_test_trials
         || start_time.elapsed() < repeat_tests_params.min_time_test_trials
     {
-        let result = run_test(container.clone(), test)?;
+        let result = run_test(image.clone(), test)?;
 
         if let TestRunResult::Correct { stats } = result.run_result {
             results.push((result.test_number, stats));
@@ -312,30 +295,35 @@ fn repeat_tests(
     })
 }
 
-fn run_test(container: Rc<DockerContainer>, test: &Test) -> Result<TestResult, String> {
+fn run_test(image: Rc<DockerImage>, test: &Test) -> Result<TestResult, String> {
     let ws_url = env::var("ENERGY_MONITOR_WS_URL").ok();
 
-    let (result, measurement) = measure_fn(ws_url, &|| {
-        container.exec("sh -c /app/entry.sh".to_string(), &test.input, &test.answer)
-    })?;
+    let result = measure_fn(ws_url, &move || image.run(&test.input));
 
     match result {
-        Err(DockerError::UnsuccessfulCommand { stderr }) => Ok(TestResult {
+        Err(MeasureFnError::FnError { error }) => match error {
+            DockerError::UnsuccessfulCommand { stderr } => Ok(TestResult {
+                test_number: test.test_number,
+                run_result: TestRunResult::TestError {
+                    error: format!("Docker run failed: {:?}", stderr),
+                },
+            }),
+            DockerError::Timeout => Ok(TestResult {
+                test_number: test.test_number,
+                run_result: TestRunResult::TestError {
+                    error: "Test timed out".to_string(),
+                },
+            }),
+            DockerError::UnexpectedError { error } => Err(error),
+        },
+        Err(MeasureFnError::InternalError { error }) => Err(error),
+
+        Ok(measurement) => Ok(TestResult {
             test_number: test.test_number,
-            run_result: TestRunResult::TestError {
-                error: format!("Docker run failed: {:?}", stderr),
-            },
-        }),
-        Err(DockerError::Timeout) => Ok(TestResult {
-            test_number: test.test_number,
-            run_result: TestRunResult::TestError {
-                error: "Test timed out".to_string(),
-            },
-        }),
-        Err(DockerError::UnexpectedError { error }) => Err(error),
-        Ok(_) => Ok(TestResult {
-            test_number: test.test_number,
-            run_result: if compare_answer(test)? {
+            run_result: if answer_is_equal_to_solution(
+                &measurement.results_dir.path().join("output.txt"),
+                &test.solution,
+            )? {
                 TestRunResult::Correct {
                     stats: TestStats {
                         time_elapsed_ms: measurement.time_ms,

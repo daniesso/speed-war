@@ -1,20 +1,23 @@
 use std::{
-    path::{self},
+    fs,
+    io::{self, BufRead},
+    path::{self, Path},
     process::{self, Output, Stdio},
-    rc::Rc,
     thread,
     time::{Duration, Instant},
 };
 
 use log::debug;
+use tempfile::{tempdir_in, TempDir};
 
 pub struct DockerImage {
     image_name: String,
 }
 
-pub struct DockerContainer {
-    container_name: String,
-    docker_image: Rc<DockerImage>,
+pub struct DockerRunResult {
+    pub start_timestamp: chrono::DateTime<chrono::Utc>,
+    pub end_timestamp: chrono::DateTime<chrono::Utc>,
+    pub results_dir: TempDir,
 }
 
 impl DockerImage {
@@ -39,23 +42,41 @@ impl DockerImage {
         }
     }
 
-    pub fn run(self) -> Result<DockerContainer, DockerError> {
+    pub fn run(&self, stdin_file: &path::Path) -> Result<DockerRunResult, DockerError> {
+        let results_dir = tempdir_in(".").map_err(|_| DockerError::UnexpectedError {
+            error: "Could not create a temp directory for test output".to_string(),
+        })?;
+
+        let container_name = random_string::generate(12, random_string::charsets::ALPHA_LOWER);
         let docker_run_cmd = format!(
-            "docker run -d -m 512MB --memory-swap 512MB --quiet {}",
-            self.image_name
+            "docker run \
+                --mount type=bind,src={:?},target=/timing/ \
+                -i -m 512MB --memory-swap 512MB --name {} {} < {:?} > {:?}",
+            results_dir.path(),
+            container_name,
+            self.image_name,
+            stdin_file,
+            results_dir.path().join("output.txt")
         );
         debug!("Running docker container with command {}", docker_run_cmd);
+
         let result = run_cmd(docker_run_cmd, CONTAINER_STARTUP_TIMEOUT).map_err(|x| {
             DockerError::UnexpectedError {
                 error: format!("Docker run error: {}", x),
             }
         })?;
 
+        self.delete_docker_container(container_name);
+
         if result.status.success() {
-            Ok(DockerContainer {
-                container_name: parse_sha256(parse_output(&result.stdout))
-                    .map_err(|err| DockerError::UnexpectedError { error: err })?,
-                docker_image: Rc::new(self),
+            let (start_timestamp, end_timestamp) = self
+                .parse_timing(&results_dir.path())
+                .map_err(|err| DockerError::UnexpectedError { error: err })?;
+
+            Ok(DockerRunResult {
+                start_timestamp,
+                end_timestamp,
+                results_dir,
             })
         } else {
             Err(DockerError::UnsuccessfulCommand {
@@ -63,59 +84,67 @@ impl DockerImage {
             })
         }
     }
-}
 
-impl DockerContainer {
-    pub fn exec(
-        &self,
-        command: String,
-        stdin_file: &path::Path,
-        stdout_file: &path::Path,
-    ) -> Result<(), DockerError> {
-        let exec_cmd = format!(
-            "docker exec -i {} {} < {:?} > {:?} ",
-            self.container_name, command, stdin_file, stdout_file
-        );
-
-        debug!("Executing Docker command: {}", exec_cmd);
-        let result = run_cmd(exec_cmd, CONTAINER_EXEC_TIMEOUT).map_err(|x| {
-            DockerError::UnexpectedError {
-                error: format!("Docker exec error: {}", x),
-            }
-        })?;
-
-        if result.status.success() {
-            Ok(())
-        } else {
-            Err(DockerError::UnsuccessfulCommand {
-                stderr: format!(
-                    "Docker exec failed: {}",
-                    parse_output(&result.stdout) + &parse_output(&result.stderr)
-                ),
-            })
-        }
-    }
-}
-
-impl Drop for DockerContainer {
-    fn drop(&mut self) {
-        let kill_cmd = format!("docker kill {}", self.container_name);
-        debug!("Dropping DockerContainer: {}", kill_cmd);
-        let result = run_cmd(kill_cmd, TWENTY_SECONDS)
-            .expect(format!("Couldn't kill container {}", self.container_name).as_str());
-
-        if !result.status.success() {
-            debug!("Dropping DockerContainer: Killing the Docker container was unsuccesful")
-        }
-
-        let rm_cmd = format!("docker rm {}", self.container_name);
-        debug!("Dropping DockerContainer: {}", rm_cmd);
+    fn delete_docker_container(&self, container_name: String) {
+        let rm_cmd = format!("docker rm {}", container_name);
+        debug!("Removing Docker container: {}", rm_cmd);
 
         let result = run_cmd(rm_cmd, TWENTY_SECONDS).expect("Couldn't remove container");
 
         if !result.status.success() {
-            debug!("Dropping DockerContainer: Removing the Docker container was unsuccesful")
+            debug!("Removing Docker container: Removing the Docker container was unsuccesful")
         }
+    }
+
+    fn parse_timing(
+        &self,
+        timing_path: &Path,
+    ) -> Result<(chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>), String> {
+        let before_path = timing_path.join("before.txt");
+        let after_path = timing_path.join("after.txt");
+
+        debug!(
+            "Parsing timestamp from files {:?} and {:?}",
+            before_path, after_path
+        );
+        let f1 = fs::File::open(&before_path)
+            .map_err(|_| format!("Couldn't open before timestamp file {:?}", before_path))?;
+        let f2 = fs::File::open(&after_path)
+            .map_err(|_| format!("Couldn't open after timestamp file {:?}", after_path))?;
+
+        let mut reader1 = io::BufReader::new(f1);
+        let mut reader2 = io::BufReader::new(f2);
+
+        let mut before_timestamp = String::new();
+        reader1
+            .read_line(&mut before_timestamp)
+            .map_err(|err| format!("Couldn't read before timestamp {}", err))?;
+
+        let mut after_timestamp = String::new();
+        reader2
+            .read_line(&mut after_timestamp)
+            .map_err(|err| format!("Couldn't read before timestamp {}", err))?;
+
+        Ok((
+            before_timestamp
+                .trim()
+                .parse::<chrono::DateTime<chrono::Utc>>()
+                .map_err(|err| {
+                    format!(
+                        "Couldn't parse before timestamp {}: {}",
+                        before_timestamp, err
+                    )
+                })?,
+            after_timestamp
+                .trim()
+                .parse::<chrono::DateTime<chrono::Utc>>()
+                .map_err(|err| {
+                    format!(
+                        "Couldn't parse after timestamp {}: {}",
+                        after_timestamp, err
+                    )
+                })?,
+        ))
     }
 }
 
@@ -218,6 +247,5 @@ fn parse_sha256(value: String) -> Result<String, String> {
 
 const IMAGE_BUILD_TIMEOUT: Duration = Duration::from_secs(300);
 const CONTAINER_STARTUP_TIMEOUT: Duration = Duration::from_secs(30);
-const CONTAINER_EXEC_TIMEOUT: Duration = Duration::from_secs(60);
 
 const TWENTY_SECONDS: Duration = Duration::from_secs(20);

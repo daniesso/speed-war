@@ -5,7 +5,10 @@ use std::{
 };
 
 use serde::Deserialize;
+use tempfile::TempDir;
 use websocket::{ClientBuilder, OwnedMessage};
+
+use crate::docker::{DockerError, DockerRunResult};
 pub struct EnergyMonitor {
     pub ws_url: String,
 }
@@ -13,35 +16,38 @@ pub struct EnergyMonitor {
 pub struct MeasurementResult {
     pub time_ms: u32,
     pub energy_j: Option<f64>,
+    pub results_dir: TempDir,
 }
 
-pub fn measure_fn<T>(
+pub enum MeasureFnError {
+    FnError { error: DockerError },
+    InternalError { error: String },
+}
+
+pub fn measure_fn(
     energy_monitor_ws_url: Option<String>,
-    func: &dyn Fn() -> T,
-) -> Result<(T, MeasurementResult), String> {
+    func: &dyn Fn() -> Result<DockerRunResult, DockerError>,
+) -> Result<MeasurementResult, MeasureFnError> {
     let monitor_service = energy_monitor_ws_url.map(|ws_url| EnergyMonitor { ws_url });
 
     let monitor = match monitor_service.map(|mon| mon.start()) {
-        Some(Err(err)) => Err(err)?,
+        Some(Err(err)) => return Err(MeasureFnError::InternalError { error: err }),
         Some(Ok(mon)) => Some(mon),
         None => None,
     };
 
-    let start_time = chrono::offset::Utc::now();
+    let result = func().map_err(|fn_error| MeasureFnError::FnError { error: fn_error })?;
 
-    let result = func();
+    let energy_consumed_j = monitor.map(|mon| {
+        mon.stop()
+            .calculate_consumed_energy(result.start_timestamp, result.end_timestamp)
+    });
 
-    let end_time = chrono::offset::Utc::now();
-    let energy_consumed_j =
-        monitor.map(|mon| mon.stop().calculate_consumed_energy(start_time, end_time));
-
-    Ok((
-        result,
-        MeasurementResult {
-            time_ms: (end_time - start_time).num_milliseconds() as u32,
-            energy_j: energy_consumed_j,
-        },
-    ))
+    Ok(MeasurementResult {
+        time_ms: (result.end_timestamp - result.start_timestamp).num_milliseconds() as u32,
+        energy_j: energy_consumed_j,
+        results_dir: result.results_dir,
+    })
 }
 
 type WSClient = websocket::sync::Client<std::net::TcpStream>;
@@ -57,7 +63,10 @@ impl EnergyMonitor {
             .set_nonblocking(true)
             .expect("Could not sent WS client nonblocking");
 
-        let mut messages = vec![EnergyMonitor::receive(&mut client)?];
+        let mut messages = vec![
+            EnergyMonitor::receive(&mut client)?,
+            EnergyMonitor::receive(&mut client)?,
+        ];
 
         let mutex = Arc::new(Mutex::new(false));
         let thread_mutex = Arc::clone(&mutex);

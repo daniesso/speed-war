@@ -8,4 +8,4 @@ COPY src .
 RUN npm install
 RUN npm run build
 
-CMD ["sleep", "infinity"]
+CMD ["/app/entry.sh"]

@@ -36,4 +36,4 @@ COPY entry.sh .
 RUN chmod +x entry.sh
 
 COPY --from=builder /app/build /app/
-CMD ["sleep", "infinity"]
+CMD ["/app/entry.sh"]
