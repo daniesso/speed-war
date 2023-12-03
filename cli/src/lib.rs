@@ -23,7 +23,7 @@ pub struct RunResult {
     pub energy_consumed_j: u32,
 }
 
-#[derive(ValueEnum, Clone, Debug)]
+#[derive(ValueEnum, Clone, Copy, Debug)]
 pub enum Lang {
     Rust,
     Python,
@@ -60,13 +60,14 @@ fn copy_dir_all(src: impl AsRef<path::Path>, dst: impl AsRef<path::Path>) -> io:
 }
 
 pub fn run_problem(
-    source_code_path: &std::path::PathBuf,
     lang: Lang,
+    submission_path: &std::path::PathBuf,
+    tests_path: &std::path::PathBuf,
 ) -> Result<Vec<TestResult>, CLIResponseError> {
-    let tmp_dir = prepare_context(source_code_path, lang)
+    let context_dir = prepare_context(submission_path, lang)
         .map_err(|err| CLIResponseError::InternalError { error: err })?;
 
-    let docker_image = build_docker_image(tmp_dir.path()).map_err(|err| match err {
+    let docker_image = build_docker_image(context_dir.path()).map_err(|err| match err {
         DockerError::Timeout => CLIResponseError::BuildTimeout,
         DockerError::UnsuccessfulCommand { stderr } => {
             CLIResponseError::BuildError { error: stderr }
@@ -74,7 +75,7 @@ pub fn run_problem(
         DockerError::UnexpectedError { error } => CLIResponseError::InternalError { error },
     })?;
 
-    run_tests(docker_image, tmp_dir.path())
+    run_tests(docker_image, &tests_path)
         .map_err(|err| CLIResponseError::InternalError { error: err })
 }
 
@@ -85,8 +86,8 @@ struct Test {
     answer: path::PathBuf,
 }
 
-fn get_tests(context_directory: &path::Path) -> Result<Vec<Test>, String> {
-    let subfolders: Vec<_> = fs::read_dir(context_directory.join("src").join("tests"))
+fn get_tests(tests_path: &path::Path) -> Result<Vec<Test>, String> {
+    let subfolders: Vec<_> = fs::read_dir(tests_path)
         .map_err(|_| "Could not read contents of tests folder")?
         .map(|entry| {
             let entry = entry.map_err(|_| "Could not read entry")?;
@@ -134,9 +135,9 @@ fn get_tests(context_directory: &path::Path) -> Result<Vec<Test>, String> {
 
 fn run_tests(
     docker_image: DockerImage,
-    context_directory: &path::Path,
+    tests_path: &path::Path,
 ) -> Result<Vec<TestResult>, String> {
-    let tests = get_tests(context_directory)?;
+    let tests = get_tests(tests_path)?;
     debug!("Running {} tests", tests.len());
 
     let mut test_results = Vec::new();
@@ -287,7 +288,7 @@ fn run_test(container: Rc<DockerContainer>, test: &Test) -> Result<TestResult, S
 }
 
 fn prepare_context(
-    source_code_path: &path::PathBuf,
+    submission_path: &path::PathBuf,
     lang: Lang,
 ) -> Result<tempfile::TempDir, String> {
     let tmp_dir = tempdir().map_err(|_| "Could not create a temp directory")?;
@@ -295,9 +296,9 @@ fn prepare_context(
     let source_dir_target = tmp_dir.path().join("src");
     debug!(
         "Copying source code from {:?} into {:?}",
-        source_code_path, source_dir_target
+        submission_path, source_dir_target
     );
-    copy_dir_all(source_code_path, &source_dir_target)
+    copy_dir_all(submission_path, &source_dir_target)
         .map_err(|x| format!("Couldn't copy source code content ({})", x))?;
     debug!(
         "Copying base image from {:?} into {:?}",

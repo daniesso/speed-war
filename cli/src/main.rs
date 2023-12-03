@@ -1,4 +1,6 @@
-use clap::Parser;
+use std::path::{Path, PathBuf};
+
+use clap::{Parser, Subcommand};
 use serde::Serialize;
 use serde_json::to_string_pretty;
 
@@ -7,10 +9,39 @@ use SpeedWarCLI::{Lang, TestResult};
 
 use log::debug;
 
+/// CLI to test submissions in one of several languages using test input
 #[derive(Parser)]
-struct Cli {
-    lang: Lang,
-    problem_path: std::path::PathBuf,
+#[command(version, long_about = None)]
+struct CLI {
+    #[command(subcommand)]
+    command: CLICommands,
+}
+
+#[derive(Subcommand)]
+enum CLICommands {
+    /// Run tests for a given problem
+    Test {
+        #[arg(long)]
+        language: Lang,
+
+        /// Problem number (1, 2, 3)
+        #[arg(long)]
+        problem: u8,
+    },
+
+    /// Run tests in a more flexible manner, accepting arbitrary tests and submission paths.
+    Evaluate {
+        #[arg(long)]
+        language: Lang,
+
+        /// Path to the tests folder
+        #[arg(long)]
+        tests: PathBuf,
+
+        /// Path to the submission folder
+        #[arg(long)]
+        submission: PathBuf,
+    },
 }
 
 #[derive(Serialize)]
@@ -30,12 +61,18 @@ enum CLIResponse {
     },
 }
 
-fn main() {
-    env_logger::init();
+fn test(language: Lang, problem: u8) {
+    let submission_path = &Path::new("../submissions").join(problem.to_string());
 
-    let args = Cli::parse();
+    let tests_path = &Path::new("../problems")
+        .join(problem.to_string())
+        .join("tests");
 
-    match run_problem(&args.problem_path, args.lang) {
+    evaluate(language, submission_path, tests_path);
+}
+
+fn evaluate(language: Lang, submission_path: &PathBuf, tests_path: &PathBuf) {
+    match run_problem(language, submission_path, tests_path) {
         Ok(results) => {
             let all_tests_successful = results.iter().all(|result| match result.run_result {
                 TestRunResult::Correct { stats: _ } => true,
@@ -65,5 +102,19 @@ fn main() {
                     .expect("Failed to serialize result to json")
             )
         }
+    }
+}
+
+fn main() {
+    env_logger::init();
+
+    let args = CLI::parse();
+    match &args.command {
+        CLICommands::Test { language, problem } => test(*language, *problem),
+        CLICommands::Evaluate {
+            language,
+            submission,
+            tests,
+        } => evaluate(*language, submission, tests),
     }
 }

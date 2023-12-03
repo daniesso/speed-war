@@ -74,35 +74,32 @@ export class TestExecutor implements ITestExecutor {
   async runPrelimTests(
     problem: number,
     lang: SubmissionLang,
-    contextPath: string,
+    submissionPath: string,
   ): Promise<TestResult | null> {
-    return this.doWithTestsInContext(
-      contextPath,
-      problem,
-      "tests",
-      async () => {
-        try {
-          const prelimResult = await this.cli.run(lang, contextPath);
+    try {
+      const prelimResult = await this.cli.evaluate(
+        lang,
+        submissionPath,
+        path.join(this.basePath, "problems", problem.toString(), "tests"),
+      );
 
-          if (
-            isTestResults(prelimResult) &&
-            prelimResult.TestResults.verdict == "Accepted"
-          ) {
-            return null;
-          } else {
-            return this.prelimFailure(prelimResult);
-          }
-        } catch (error) {
-          const errorMessage = `Executing tests using CLI failed: ${error}`;
-          console.error(errorMessage);
+      if (
+        isTestResults(prelimResult) &&
+        prelimResult.TestResults.verdict == "Accepted"
+      ) {
+        return null;
+      } else {
+        return this.prelimFailure(prelimResult);
+      }
+    } catch (error) {
+      const errorMessage = `Executing tests using CLI failed: ${error}`;
+      console.error(errorMessage);
 
-          return {
-            type: "internal_server_error",
-            error: errorMessage,
-          } satisfies TestResultServerError;
-        }
-      },
-    );
+      return {
+        type: "internal_server_error",
+        error: errorMessage,
+      } satisfies TestResultServerError;
+    }
   }
 
   async runSecretTests(
@@ -110,38 +107,40 @@ export class TestExecutor implements ITestExecutor {
     lang: SubmissionLang,
     contextPath: string,
   ): Promise<TestResult> {
-    return this.doWithTestsInContext(
-      contextPath,
-      problem,
-      "secret_tests",
-      async () => {
-        try {
-          const secretTestsCliOutput = await this.cli.run(lang, contextPath);
+    try {
+      const secretTestsCliOutput = await this.cli.evaluate(
+        lang,
+        contextPath,
+        path.join(
+          this.basePath,
+          "problems",
+          problem.toString(),
+          "secret_tests",
+        ),
+      );
 
-          if (
-            isTestResults(secretTestsCliOutput) &&
-            secretTestsCliOutput.TestResults.verdict == "Accepted"
-          ) {
-            const scores = this.aggregateScores(secretTestsCliOutput);
-            return {
-              type: "success",
-              scoreJ: scores.scoreJ,
-              scoreMs: scores.scoreMs,
-            };
-          } else {
-            return this.secretTestsFailure(secretTestsCliOutput);
-          }
-        } catch (error) {
-          const errorMessage = `Executing tests using CLI failed: ${error}`;
-          console.error(errorMessage);
+      if (
+        isTestResults(secretTestsCliOutput) &&
+        secretTestsCliOutput.TestResults.verdict == "Accepted"
+      ) {
+        const scores = this.aggregateScores(secretTestsCliOutput);
+        return {
+          type: "success",
+          scoreJ: scores.scoreJ,
+          scoreMs: scores.scoreMs,
+        };
+      } else {
+        return this.secretTestsFailure(secretTestsCliOutput);
+      }
+    } catch (error) {
+      const errorMessage = `Executing tests using CLI failed: ${error}`;
+      console.error(errorMessage);
 
-          return {
-            type: "internal_server_error",
-            error: errorMessage,
-          } satisfies TestResultServerError;
-        }
-      },
-    );
+      return {
+        type: "internal_server_error",
+        error: errorMessage,
+      } satisfies TestResultServerError;
+    }
   }
 
   async prepareContext(contextPath: string, submissionData: Buffer) {
@@ -151,38 +150,6 @@ export class TestExecutor implements ITestExecutor {
     await decompress(zipPath, contextPath);
 
     await fs.rm(zipPath);
-
-    // in case tests were bundled with submission, remove them in order to add our own
-    await fs.rm(path.join(contextPath, "tests"), {
-      recursive: true,
-      force: true,
-    });
-  }
-
-  async doWithTestsInContext<T>(
-    contextPath: string,
-    problem: number,
-    testsFolderName: string,
-    callback: () => Promise<T>,
-  ): Promise<T> {
-    const testsTargetPath = path.join(contextPath, "tests");
-
-    await fs.cp(
-      path.join(this.basePath, "problems", problem.toString(), testsFolderName),
-      testsTargetPath,
-      {
-        recursive: true,
-      },
-    );
-
-    const result = await callback();
-
-    await fs.rm(testsTargetPath, {
-      recursive: true,
-      force: true,
-    });
-
-    return result;
   }
 
   aggregateScores(testResults: CLITestResults) {

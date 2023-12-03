@@ -13,13 +13,17 @@ export class SpeedWarCLIWrapper {
     this.energyMeasurementWsURL = energyMeasurementWsURL;
   }
 
-  async run(lang: SubmissionLang, contextDir: string): Promise<CLIOutput> {
+  async evaluate(
+    lang: SubmissionLang,
+    submissionPath: string,
+    testsPath: string,
+  ): Promise<CLIOutput> {
     const wsUrlEnvVar = this.energyMeasurementWsURL
       ? `ENERGY_MONITOR_WS_URL=${this.energyMeasurementWsURL}`
       : "";
     const cmd = `cd ${this.cliBasePath} && ${
       wsUrlEnvVar + " "
-    }./SpeedWarCLI ${lang} ${contextDir}`;
+    }./SpeedWarCLI evaluate --language ${lang} --submission ${submissionPath} --tests ${testsPath}`;
 
     return new Promise((resolve, reject) =>
       exec(cmd, (error, stdout, stderr) => {
