@@ -1,2 +1,1 @@
-third line
-fourth line
+ABCBC
