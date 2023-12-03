@@ -61,6 +61,7 @@ pub fn run_problem(
     lang: Lang,
     submission_path: &std::path::PathBuf,
     tests_path: &std::path::PathBuf,
+    repeat_tests_params: Option<RepeatTestsParams>,
 ) -> Result<Vec<TestResult>, CLIResponseError> {
     let context_dir = prepare_context(submission_path, lang)
         .map_err(|err| CLIResponseError::InternalError { error: err })?;
@@ -73,7 +74,7 @@ pub fn run_problem(
         DockerError::UnexpectedError { error } => CLIResponseError::InternalError { error },
     })?;
 
-    run_tests(docker_image, &tests_path)
+    run_tests(docker_image, &tests_path, repeat_tests_params)
         .map_err(|err| CLIResponseError::InternalError { error: err })
 }
 
@@ -134,6 +135,7 @@ fn get_tests(tests_path: &path::Path) -> Result<Vec<Test>, String> {
 fn run_tests(
     docker_image: DockerImage,
     tests_path: &path::Path,
+    repeat_tests_params: Option<RepeatTestsParams>,
 ) -> Result<Vec<TestResult>, String> {
     let tests = get_tests(tests_path)?;
     debug!("Running {} tests", tests.len());
@@ -147,12 +149,12 @@ fn run_tests(
     );
 
     for test in tests {
-        let test_run = repeat_tests(
-            container.clone(),
-            &test,
-            3,
-            std::time::Duration::from_secs(10),
-        );
+        let test_run = if let Some(test_params) = repeat_tests_params {
+            repeat_tests(container.clone(), &test, test_params)
+        } else {
+            run_test(container.clone(), &test)
+        };
+
         if let Ok(result) = test_run {
             test_results.push(result);
         } else if let Err(error) = test_run {
@@ -253,19 +255,26 @@ pub enum CLIResponseError {
     InternalError { error: String },
 }
 
+#[derive(Clone, Copy)]
+pub struct RepeatTestsParams {
+    pub min_num_test_trials: u8,
+    pub min_time_test_trials: std::time::Duration,
+}
+
 fn repeat_tests(
     container: Rc<DockerContainer>,
     test: &Test,
-    min_num_trials: u8,
-    min_time: std::time::Duration,
+    repeat_tests_params: RepeatTestsParams,
 ) -> Result<TestResult, String> {
-    assert!(min_num_trials >= 1);
+    assert!(repeat_tests_params.min_num_test_trials >= 1);
     let mut results: Vec<(u8, TestStats)> = Vec::new();
 
     let mut test_iteration = 0;
     let start_time = std::time::Instant::now();
 
-    while test_iteration < min_num_trials || start_time.elapsed() < min_time {
+    while test_iteration < repeat_tests_params.min_num_test_trials
+        || start_time.elapsed() < repeat_tests_params.min_time_test_trials
+    {
         let result = run_test(container.clone(), test)?;
 
         if let TestRunResult::Correct { stats } = result.run_result {

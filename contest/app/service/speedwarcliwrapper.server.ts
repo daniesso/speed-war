@@ -17,13 +17,22 @@ export class SpeedWarCLIWrapper {
     lang: SubmissionLang,
     submissionPath: string,
     testsPath: string,
+    repeatTestsParams: {
+      minNumTestTrials: number;
+      minSecondsTestTrials: number;
+    } | null,
   ): Promise<CLIOutput> {
     const wsUrlEnvVar = this.energyMeasurementWsURL
       ? `ENERGY_MONITOR_WS_URL=${this.energyMeasurementWsURL}`
       : "";
+
+    const repeat = repeatTestsParams
+      ? `--min-num-test-trials ${repeatTestsParams.minNumTestTrials} --min-seconds-test-trials ${repeatTestsParams.minSecondsTestTrials}`
+      : "";
+
     const cmd = `cd ${this.cliBasePath} && ${
       wsUrlEnvVar + " "
-    }./SpeedWarCLI evaluate --language ${lang} --submission ${submissionPath} --tests ${testsPath}`;
+    }./SpeedWarCLI evaluate --language ${lang} --submission ${submissionPath} --tests ${testsPath} ${repeat}`;
 
     return new Promise((resolve, reject) =>
       exec(cmd, (error, stdout, stderr) => {

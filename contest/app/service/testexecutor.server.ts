@@ -81,6 +81,7 @@ export class TestExecutor implements ITestExecutor {
         lang,
         submissionPath,
         path.join(this.basePath, "problems", problem.toString(), "tests"),
+        null,
       );
 
       if (
@@ -117,6 +118,10 @@ export class TestExecutor implements ITestExecutor {
           problem.toString(),
           "secret_tests",
         ),
+        {
+          minNumTestTrials: 3,
+          minSecondsTestTrials: 10,
+        },
       );
 
       if (

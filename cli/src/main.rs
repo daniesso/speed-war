@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 use serde::Serialize;
 use serde_json::to_string_pretty;
 
-use SpeedWarCLI::{run_problem, CLIResponseError, TestRunResult};
+use SpeedWarCLI::{run_problem, CLIResponseError, RepeatTestsParams, TestRunResult};
 use SpeedWarCLI::{Lang, TestResult};
 
 use log::debug;
@@ -41,6 +41,15 @@ enum CLICommands {
         /// Path to the submission folder
         #[arg(long)]
         submission: PathBuf,
+
+        /// Each test should at least be repeated the specified number of times.
+        #[arg(long)]
+        min_num_test_trials: Option<u8>,
+
+        /// Each test should at least be repeated a number of times so that we measure
+        /// for at least the specified number of seconds.
+        #[arg(long)]
+        min_seconds_test_trials: Option<u8>,
     },
 }
 
@@ -68,11 +77,16 @@ fn test(language: Lang, problem: u8) {
         .join(problem.to_string())
         .join("tests");
 
-    evaluate(language, submission_path, tests_path);
+    evaluate(language, submission_path, tests_path, None);
 }
 
-fn evaluate(language: Lang, submission_path: &PathBuf, tests_path: &PathBuf) {
-    match run_problem(language, submission_path, tests_path) {
+fn evaluate(
+    language: Lang,
+    submission_path: &PathBuf,
+    tests_path: &PathBuf,
+    repeat_test_params: Option<RepeatTestsParams>,
+) {
+    match run_problem(language, submission_path, tests_path, repeat_test_params) {
         Ok(results) => {
             let all_tests_successful = results.iter().all(|result| match result.run_result {
                 TestRunResult::Correct { stats: _ } => true,
@@ -115,6 +129,21 @@ fn main() {
             language,
             submission,
             tests,
-        } => evaluate(*language, submission, tests),
+            min_num_test_trials,
+            min_seconds_test_trials: min_time_test_trials,
+        } => {
+            assert!(min_num_test_trials.is_some() == min_time_test_trials.is_some(), 
+                "--min-num-test-trials and --min-time-test-trials arguments must either both be present, or neither");
+
+            evaluate(
+                *language,
+                submission,
+                tests,
+                min_num_test_trials.map(|min_num_test| RepeatTestsParams{
+                    min_num_test_trials: min_num_test,
+                    min_time_test_trials: std::time::Duration::from_secs(min_time_test_trials.unwrap() as u64)
+                } ),
+            )
+        }
     }
 }
