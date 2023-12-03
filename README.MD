@@ -1,55 +1,30 @@
-# Speed War
+# Speed Warz
 
-## CLI
+## Komme i gang
 
-In order to run tests using CLI:
-
-```sh
-cd cli
-cargo run -- [language] [problem_path]
-
-# For example:
-cargo run -- rust ../problems/1
-```
-
-To enable debug logging, use:
-
-```sh
-RUST_LOG=debug cargo run -- [language] [problem_path]
-```
-
-In order to measure energy:
-
-- a Tuya Smart Plug device is required
-- The python server (`py/main.py`) must first be started.
-
-Then run:
-
-```sh
-ENERGY_MONITOR_WS_URL="ws://localhost:3100" cargo run -- [language] [problem_path]
-```
-
-## Contest app
-
-Some initial setup is required:
-
-- npx remix init
-- npm install
-- npm run setup
-
-An `.env` file must be present credentials and properties.
-
-For instance:
+1. Bygg SpeedWar CLI-et:
 
 ```
-DATABASE_URL="file:./data.db?connection_limit=1"
-SESSION_SECRET="99a64178-97f7-4ef2-bc8c-b88f3946efae"
-BOOTSTRAP_ACCESS_KEY="976da142-7afe-49c5-8c08-bdea79ae2452"
-REPO_BASE_PATH= "/path/to/repo/speed-war"
+`cd cli && cargo build --release && cp target/release/SpeedWarCLI .`
 ```
 
-Then, to start app:
+2. Sjekk at du har Docker tilgjengelig.
+3. Test oppgave 0 med CLI-et. Gå inn i submissions-mappen og endre navn på en av mappene til `0`. For eksempel:
 
 ```
-npm run dev
+mv 0-python 0
 ```
+
+4. Kjør testene med:
+
+```
+./SpeedWarCLI test --language python --problem 0
+```
+
+Eventuelt, for å skru på debug-logging, bruk
+
+```
+RUST_LOG=debug ./SpeedWarCLI test --language python --problem 0
+```
+
+5. Verifiser at du får en JSON-output som inneholder to tester med tidsforbruk.

@@ -3,21 +3,19 @@ pub mod energymonitor;
 
 use clap::ValueEnum;
 use docker::{DockerContainer, DockerError, DockerImage};
-use energymonitor::{measure_fn, EnergyMonitor};
+use energymonitor::measure_fn;
 use log::debug;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::cmp::max;
+use std::env;
 use std::io::Read;
 use std::rc::Rc;
-use std::{env, thread};
 use std::{
     fs, io,
     path::{self},
     process,
-    sync::{Arc, Mutex},
 };
 use tempfile::tempdir;
-use websocket::{ClientBuilder, OwnedMessage};
 pub struct RunResult {
     pub time_elapsed_ms: u32,
     pub energy_consumed_j: u32,

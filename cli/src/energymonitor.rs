@@ -92,7 +92,7 @@ impl EnergyMonitor {
             if let OwnedMessage::Text(text) = msg {
                 serde_json::from_str::<EnergyMeasurementDTO>(&text)
                     .map(|res| res.to_domain())
-                    .map_err(|err| format!("Failed to parse message {}", text))
+                    .map_err(|err| format!("Failed to parse message {}: {}", text, err))
             } else {
                 Err(format!("Unrecognized message from web socket {:?}", msg))
             }

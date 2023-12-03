@@ -1,9 +1,7 @@
 use std::{
-    fs, io,
     path::{self},
     process::{self, Output, Stdio},
     rc::Rc,
-    sync::{Arc, Mutex},
     thread,
     time::{Duration, Instant},
 };
