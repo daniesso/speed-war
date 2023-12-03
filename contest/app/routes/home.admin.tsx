@@ -51,8 +51,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const numProblems = await fs
       .readdir(path.join(repoBasePath, "problems"))
       .then((files) => {
-        return files.filter((fileName) => fileName.match(/^\d+$/) != null)
-          .length;
+        return files
+          .filter((fileName) => fileName.match(/^\d+$/) != null)
+          .map((filename) => Number(filename))
+          .filter((problemNumber) => problemNumber > 0).length;
       });
 
     await createContest(numTeams, numProblems);
