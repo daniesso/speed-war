@@ -1,5 +1,4 @@
-FROM alpine
-RUN apk add --no-cache python3 py3-pip
+FROM python:3
 WORKDIR /app
 COPY entry.sh .
 COPY install-deps.sh .
