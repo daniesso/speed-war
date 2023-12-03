@@ -5,7 +5,7 @@
 1. Bygg SpeedWar CLI-et:
 
 ```
-`cd cli && cargo build --release && cp target/release/SpeedWarCLI .`
+cd cli && cargo build --release && cp target/release/SpeedWarCLI .
 ```
 
 2. Sjekk at du har Docker tilgjengelig.
