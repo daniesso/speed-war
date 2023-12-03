@@ -147,7 +147,12 @@ fn run_tests(
     );
 
     for test in tests {
-        let test_run = run_test(container.clone(), &test);
+        let test_run = repeat_tests(
+            container.clone(),
+            &test,
+            3,
+            std::time::Duration::from_secs(10),
+        );
         if let Ok(result) = test_run {
             test_results.push(result);
         } else if let Err(error) = test_run {
@@ -246,6 +251,56 @@ pub enum CLIResponseError {
     BuildError { error: String },
     BuildTimeout,
     InternalError { error: String },
+}
+
+fn repeat_tests(
+    container: Rc<DockerContainer>,
+    test: &Test,
+    min_num_trials: u8,
+    min_time: std::time::Duration,
+) -> Result<TestResult, String> {
+    assert!(min_num_trials >= 1);
+    let mut results: Vec<(u8, TestStats)> = Vec::new();
+
+    let mut test_iteration = 0;
+    let start_time = std::time::Instant::now();
+
+    while test_iteration < min_num_trials || start_time.elapsed() < min_time {
+        let result = run_test(container.clone(), test)?;
+
+        if let TestRunResult::Correct { stats } = result.run_result {
+            results.push((result.test_number, stats));
+        } else {
+            return Ok(result);
+        }
+
+        test_iteration += 1;
+    }
+
+    let num_trials = results.len();
+    let time_sum: u32 = results.iter().map(|(_, stats)| stats.time_elapsed_ms).sum();
+    let energy_sum = results
+        .iter()
+        .map(|(_, stats)| stats.energy_consumed_j)
+        .fold(Some(0.0 as f64), |acc, curr| {
+            acc.and_then(|lhs| curr.map(|rhs| lhs + rhs))
+        });
+
+    let avg_time_elapsed_ms = ((time_sum as f64) / (num_trials as f64)).round() as u32;
+    let avg_energy_consumed_j = energy_sum.map(|e_sum| e_sum / (num_trials as f64));
+
+    debug!("Ran {} tests. Total time was {} ms, total energy was {:?}, avg time was {}, avg energy was {:?}",
+        num_trials, time_sum, energy_sum,avg_time_elapsed_ms, avg_energy_consumed_j);
+
+    Ok(TestResult {
+        test_number: results[0].0,
+        run_result: TestRunResult::Correct {
+            stats: TestStats {
+                time_elapsed_ms: avg_time_elapsed_ms,
+                energy_consumed_j: avg_energy_consumed_j,
+            },
+        },
+    })
 }
 
 fn run_test(container: Rc<DockerContainer>, test: &Test) -> Result<TestResult, String> {
