@@ -13,8 +13,8 @@ Hvilken spiller som s skal møte i parti p.
 
 ## Eksempler:
 
-Input: 8 3 5
-Output: 6
+Input: ```8 3 5```
+Output: ```6```
 
-Input: 6 6 3
-Output: 1
+Input: ```6 6 3```
+Output: ```1```
