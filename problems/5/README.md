@@ -5,6 +5,8 @@ Gitt en liste men n heltall (indexert fra 0 til n-1). Skriv et program som støt
 - Addere et gitt tall til et av talene i listen.
 - Beregne summen av alle tall fra starten av listen til en gitt posisjon.
 
+Alle tall i listen er 0 ved start.
+
 ## Input:
 - En rad med to tall (n og o) der n er antall elementer i listen (n <= 1000000) og o er antall operasjoner som skal gjennomføres (o <= 1000000).
 - o rader med operasjoner på et av følgende format:
