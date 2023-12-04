@@ -18,26 +18,34 @@ Gitt en liste men n heltall (indexert fra 0 til n-1). Skriv et program som støt
 ## Eksempel 1:
 
 Input:
+```
 10 4
 + 7 23
 ? 8
 + 3 17
 ? 8
+```
 
 Output:
+```
 23
 40
+```
 
 
 ## Eksempel 2:
 
 Input:
+```
 5 4
 + 0 -43
 + 4 1
 ? 0
 ? 5
+```
 
 Output:
+```
 0
 -42
+```
